@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, FlatList, View, Text, TouchableOpacity, Alert, Dimensions } from 'react-native';
 import { Calendar } from 'react-native-calendars';
-import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 
 export default function HomeScreen() {
@@ -46,10 +45,11 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <Text style={styles.heading}>Welcome to MediBuddy!</Text>
       {/* Calendar */}
       <Calendar
         markedDates={{
-          [selectedDate || '']: { selected: true, selectedColor: '#A1CEDC' },
+          [selectedDate || '']: { selected: true, selectedColor: '#007bff' },
         }}
         onDayPress={onDateSelect}
         style={styles.calendar}
@@ -98,13 +98,13 @@ export default function HomeScreen() {
                 {!item.status && (
                   <View style={styles.buttonsContainer}>
                     <TouchableOpacity
-                      style={styles.button}
+                      style={styles.takenButton}
                       onPress={() => markAs(item.id, 'Taken')}
                     >
                       <Text style={styles.buttonText}>Taken</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={styles.button}
+                      style={styles.missedButton}
                       onPress={() => markAs(item.id, 'Missed')}
                     >
                       <Text style={styles.buttonText}>Missed</Text>
@@ -125,13 +125,19 @@ export default function HomeScreen() {
 const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
+  heading: {
+    marginTop: 35,
+    fontSize: width * 0.05,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    alignSelf: 'center',
+  },
   container: {
     flex: 1,
     padding: 16,
     backgroundColor: '#fff',
   },
   calendar: {
-    marginTop: 30,
     marginBottom: 16,
     width: '100%',
     padding: 16,
@@ -170,14 +176,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
-  button: {
+  takenButton: {
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#A1CEDC',
+    backgroundColor: '#28a745',
+    borderRadius: 4,
+  },
+  missedButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#dc3545',
     borderRadius: 4,
   },
   buttonText: {
-    color: '#000',
+    color: '#fff',
     fontSize: width * 0.045,
     fontWeight: '700',
   },
