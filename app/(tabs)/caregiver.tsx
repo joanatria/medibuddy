@@ -13,21 +13,29 @@ import {
 
 interface Caregiver {
   id: string;
-  name: string;
+  firstname: string;
+  lastname: string;
+  email: string;
   contact: string;
   relationship: string;
 }
 
 export default function CaregiverTab() {
-  const [caregiverName, setCaregiverName] = useState('');
+  const [caregiverFirstName, setCaregiverFirstName] = useState('');
+  const [caregiverLastName, setCaregiverLastName] = useState('');
+  const [caregiverEmail, setCaregiverEmail] = useState('');
   const [contact, setContact] = useState('');
   const [relationship, setRelationship] = useState('');
   const [caregivers, setCaregivers] = useState<Caregiver[]>([]);
-  const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const handleAddCaregiver = () => {
-    if (!caregiverName.trim()) {
-      Alert.alert('Invalid Input', 'Caregiver name is required.');
+    if (!caregiverFirstName.trim()) {
+      Alert.alert('Invalid Input', 'First name is required.');
+      return;
+    }
+    if (!caregiverLastName.trim()) {
+      Alert.alert('Invalid Input', 'Last name is required.');
       return;
     }
     if (!contact.trim()) {
@@ -41,7 +49,9 @@ export default function CaregiverTab() {
 
     const newCaregiver = {
       id: editingId || Date.now().toString(),
-      name: caregiverName.trim(),
+      firstname: caregiverFirstName.trim(),
+      lastname: caregiverLastName.trim(),
+      email: caregiverEmail,
       contact: contact.trim(),
       relationship: relationship.trim(),
     };
@@ -56,15 +66,16 @@ export default function CaregiverTab() {
     Alert.alert('Success', editingId ? 'Caregiver updated successfully!' : 'Caregiver added successfully!');
   };
 
-  const handleDeleteCaregiver = (id) => {
+  const handleDeleteCaregiver = (id: string) => {
     setCaregivers((prev) => prev.filter((cg) => cg.id !== id));
     Alert.alert('Success', 'Caregiver deleted.');
   };
 
-  const handleEditCaregiver = (id) => {
+  const handleEditCaregiver = (id: string) => {
     const caregiver = caregivers.find((cg) => cg.id === id);
     if (caregiver) {
-      setCaregiverName(caregiver.name);
+      setCaregiverFirstName(caregiver.firstname);
+      setCaregiverLastName(caregiver.lastname);
       setContact(caregiver.contact);
       setRelationship(caregiver.relationship);
       setEditingId(caregiver.id);
@@ -72,7 +83,8 @@ export default function CaregiverTab() {
   };
 
   const clearForm = () => {
-    setCaregiverName('');
+    setCaregiverFirstName('');
+    setCaregiverLastName('');
     setContact('');
     setRelationship('');
     setEditingId(null);
@@ -83,13 +95,35 @@ export default function CaregiverTab() {
       <Text style={styles.heading}>{editingId ? 'Edit Caregiver' : 'Add Caregiver'}</Text>
 
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Name</Text>
+        <Text style={styles.label}>First Name</Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter caregiver name"
+          placeholder="First Name"
           placeholderTextColor="#5A5A5A"
-          value={caregiverName}
-          onChangeText={setCaregiverName}
+          value={caregiverFirstName}
+          onChangeText={setCaregiverFirstName}
+        />
+      </View>
+
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Last Name</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Last Name"
+          placeholderTextColor="#5A5A5A"
+          value={caregiverLastName}
+          onChangeText={setCaregiverLastName}
+        />
+      </View>
+
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Email Address</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Email Address"
+          placeholderTextColor="#5A5A5A"
+          value={caregiverEmail}
+          onChangeText={setCaregiverEmail}
         />
       </View>
 
@@ -133,7 +167,9 @@ export default function CaregiverTab() {
           renderItem={({ item }) => (
             <View style={styles.caregiverItem}>
               <View>
-                <Text style={styles.caregiverText}>{item.name}</Text>
+                <Text style={styles.caregiverText}>{item.firstname}</Text>
+                <Text style={styles.caregiverText}>{item.lastname}</Text>
+                <Text style={styles.caregiverText}>{item.email}</Text>
                 <Text style={styles.caregiverText}>Contact: {item.contact}</Text>
                 <Text style={styles.caregiverText}>Relationship: {item.relationship}</Text>
               </View>
