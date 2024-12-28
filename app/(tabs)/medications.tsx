@@ -9,51 +9,129 @@ import {
   Alert,
   Dimensions,
   ScrollView,
+  Button
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as DocumentPicker from 'expo-document-picker';
+import { Calendar } from 'react-native-calendars'; 
 
 interface Medication {
   id: string;
   name: string;
-  dosage: string;
+  description: string;
+  instructions: string;
+  dose: string;
   numTablets: string;
+  intTablets: string;
+  currTablets: string;
+  unit: string;
   time: string;
+  attachment?: string;
+  notificationType: string;
+  notificationDetails: string[];
+  days: string[];
 }
 
 export default function MedicationTab() {
   const [medicationName, setMedicationName] = useState('');
-  const [dosage, setDosage] = useState('');
+  const [dose, setDose] = useState('');
   const [numTablets, setNumTablets] = useState('');
+  const [intTablets, setIntTablets] = useState('');
+  const [currTablets, setCurrTablets] = useState('');
+  const [unit, setUnit] = useState('');
   const [time, setTime] = useState(new Date());
   const [timeSlots, setTimeSlots] = useState<string[]>([]);
   const [medications, setMedications] = useState<Medication[]>([]);
+  const [description, setDescription] = useState('');
+  const [instructions, setInstructions] = useState('');
+  const [attachment, setAttachment] = useState<string | null>(null);
+  const [notificationType, setNotificationType] = useState('');
+  const [notificationDetails, setNotificationDetails] = useState<string[]>([]);
+  const [days, setDays] = useState<string[]>([]);
   const [editingId, setEditingId] = useState(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+
+  const handleCheckboxChange = (value) => {
+    if (notificationDetails.includes(value)) {
+      setNotificationDetails(notificationDetails.filter((item) => item !== value));
+    } else {
+      setNotificationDetails([...notificationDetails, value]);
+    }
+  };
+
+  const handleAttachRecording = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'audio/*',
+        copyToCacheDirectory: true,
+      });
+      if (result.type === 'success') {
+        setAttachment(result.uri);
+        Alert.alert('Success', 'Attachment added successfully!');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to attach recording.');
+    }
+  };
 
   const handleAddMedication = () => {
     if (!medicationName.trim()) {
       Alert.alert('Invalid Input', 'Medication name is required.');
       return;
     }
-    if (!dosage.trim()) {
-      Alert.alert('Invalid Input', 'Dosage is required.');
+    if (!description.trim()) {
+      Alert.alert('Invalid Input', 'Description is required.');
+      return;
+    }
+    if (!instructions.trim()) {
+      Alert.alert('Invalid Input', 'Instructions are required.');
+      return;
+    }
+    if (!dose.trim()) {
+      Alert.alert('Invalid Input', 'Dose is required.');
       return;
     }
     if (!numTablets.trim()) {
-      Alert.alert('Invalid Input', 'Number of tablets is required.');
+      Alert.alert('Invalid Input', 'Required number of tablets is required.');
+      return;
+    }
+    if (!intTablets.trim()) {
+      Alert.alert('Invalid Input', 'Initial number of tablets is required.');
+      return;
+    }
+    if (!currTablets.trim()) {
+      Alert.alert('Invalid Input', 'Current number of tablets is required.');
+      return;
+    }
+    if (!unit.trim()) {
+      Alert.alert('Invalid Input', 'Unit is required.');
       return;
     }
     if (timeSlots.length === 0) {
       Alert.alert('Invalid Input', 'At least one time slot is required.');
       return;
     }
+    if (days.length === 0) {
+      Alert.alert('Invalid Input', 'At least one day is required.');
+      return;
+    }
 
     const newMedication = {
       id: editingId || Date.now().toString(),
       name: medicationName.trim(),
-      dosage: `${dosage} mg`,
+      description: description.trim(),
+      instructions: instructions.trim(),
+      dose: dose.trim(),
       numTablets: numTablets.trim(),
+      intTablets: intTablets.trim(),
+      currTablets: currTablets.trim(),
+      unit: unit ? unit.trim() : '',
       time: timeSlots.join(', '),
+      attachment: attachment || '',
+      notificationType,
+      notificationDetails,
+      days,
     };
 
     setMedications((prev) =>
@@ -66,26 +144,10 @@ export default function MedicationTab() {
     Alert.alert('Success', editingId ? 'Medication updated successfully!' : 'Medication added successfully!');
   };
 
-  const handleDeleteMedication = (id) => {
-    setMedications((prev) => prev.filter((med) => med.id !== id));
-    Alert.alert('Success', 'Medication deleted.');
-  };
-
-  const handleEditMedication = (id) => {
-    const med = medications.find((med) => med.id === id);
-    if (med) {
-      setMedicationName(med.name);
-      setDosage(med.dosage.replace(' mg', ''));
-      setNumTablets(med.numTablets);
-      setTimeSlots(med.time.split(', '));
-      setEditingId(med.id);
-    }
-  };
-
   const handleAddTimeSlot = () => {
-    const tabletCount = parseInt(numTablets, 10); 
+    const tabletCount = parseInt(numTablets, 10);
     if (tabletCount <= 1 && timeSlots.length >= 1) {
-      alert("You can only add one time slot for a single tablet.");
+      alert('You can only add one time slot for a single tablet.');
       return;
     }
     const formattedTime = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -96,14 +158,36 @@ export default function MedicationTab() {
     setTimeSlots((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleDaySelect = (day) => {
+    setDays((prevDays) => {
+      const newDays = [...prevDays];
+      if (newDays.includes(day)) {
+        newDays.splice(newDays.indexOf(day), 1); // Remove day if already selected
+      } else {
+        newDays.push(day); // Add day if not selected
+      }
+      return newDays;
+    });
+  };
+
   const clearForm = () => {
     setMedicationName('');
-    setDosage('');
+    setDescription('');
+    setInstructions('');
+    setDose('');
     setNumTablets('');
+    setIntTablets('');
+    setCurrTablets('');
+    setUnit('');
     setTime(new Date());
     setTimeSlots([]);
+    setAttachment(null);
+    setNotificationType('');
+    setNotificationDetails([]);
+    setDays([]);
     setEditingId(null);
     setShowTimePicker(false);
+    setShowCalendar(false);
   };
 
   return (
@@ -122,22 +206,44 @@ export default function MedicationTab() {
     </View>
 
     <View style={styles.formGroup}>
-      <Text style={styles.label}>Dosage (mg)</Text>
+      <Text style={styles.label}>Description</Text>
       <TextInput
         style={styles.input}
-        placeholder="e.g., 500"
+        placeholder="Enter description"
         placeholderTextColor="#5A5A5A"
-        value={dosage}
-        onChangeText={(text) => setDosage(text.replace(/[^0-9]/g, ''))}
+        value={description}
+        onChangeText={setDescription}
+      />
+    </View>
+
+    <View style={styles.formGroup}>
+      <Text style={styles.label}>Instructions</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Enter instructions"
+        placeholderTextColor="#5A5A5A"
+        value={instructions}
+        onChangeText={setInstructions}
+      />
+    </View>
+
+    <View style={styles.formGroup}>
+      <Text style={styles.label}>Dose</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="e.g., 1"
+        placeholderTextColor="#5A5A5A"
+        value={dose}
+        onChangeText={(text) => setDose(text.replace(/[^0-9]/g, ''))}
         keyboardType="numeric"
       />
     </View>
 
     <View style={styles.formGroup}>
-      <Text style={styles.label}>Number of Tablets</Text>
+      <Text style={styles.label}>Required Number of Tablets</Text>
       <TextInput
         style={styles.input}
-        placeholder="e.g., 1"
+        placeholder="e.g., 14"
         placeholderTextColor="#5A5A5A"
         value={numTablets}
         onChangeText={(text) => setNumTablets(text.replace(/[^0-9]/g, ''))}
@@ -146,65 +252,109 @@ export default function MedicationTab() {
     </View>
 
     <View style={styles.formGroup}>
-      <Text style={styles.label}>Time Slots</Text>
-      <View style={styles.timeInputContainer}>
-    {/* Time Picker Button */}
-    <TouchableOpacity
-      onPress={() => setShowTimePicker(true)}
-      style={[styles.input, styles.timeInput]}
-    >
-      <Text style={styles.timeText}>
-        {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-      </Text>
-    </TouchableOpacity>
-
-    {/* Time Picker Modal */}
-    {showTimePicker && (
-      <DateTimePicker
-        value={time}
-        mode="time"
-        is24Hour={false}
-        display="spinner"
-        onChange={(event, selectedTime) => {
-          setShowTimePicker(false);
-          if (selectedTime) setTime(selectedTime);
-        }}
+      <Text style={styles.label}>Initial Number of Tablets</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="e.g., 30"
+        placeholderTextColor="#5A5A5A"
+        value={intTablets}
+        onChangeText={(text) => setIntTablets(text.replace(/[^0-9]/g, ''))}
+        keyboardType="numeric"
       />
-    )}
-
-    {/* Add Time Slot Button */}
-    <TouchableOpacity
-      style={[
-        styles.addTimeButton,
-        timeSlots.length < numTablets ? {} : { backgroundColor: '#ccc' },
-      ]}
-      onPress={handleAddTimeSlot}
-      disabled={timeSlots.length >= numTablets}
-    >
-      <Text style={styles.plusText}>+</Text>
-    </TouchableOpacity>
     </View>
 
-  {/* Validation Message */}
-  {timeSlots.length >= numTablets && (
-    <Text style={{ color: 'red', marginTop: 5 }}>
-      Time slots cannot exceed the number of tablets.
-    </Text>
-  )}
+    <View style={styles.formGroup}>
+      <Text style={styles.label}>Current Number of Tablets</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="e.g., 15"
+        placeholderTextColor="#5A5A5A"
+        value={currTablets}
+        onChangeText={(text) => setCurrTablets(text.replace(/[^0-9]/g, ''))}
+        keyboardType="numeric"
+      />
+    </View>
 
-  {/* Render Time Slots */}
-  <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
-    {timeSlots.map((item, index) => (
-      <View key={`${item}-${index}`} style={styles.timeSlotItem}>
-        <Text style={styles.timeSlotText}>{item}</Text>
-        <TouchableOpacity onPress={() => handleRemoveTimeSlot(index)}>
-          <Text style={styles.removeTimeSlotText}>x</Text>
-        </TouchableOpacity>
+    <View style={styles.formGroup}>
+      <Text style={styles.label}>Unit</Text>
+      <TextInput
+       style={styles.input}
+       placeholder="e.g mL"
+       placeholderTextColor="#5A5A5A"
+       value={unit}
+       onChangeText={setUnit}
+      />
+    </View>
+
+    <View style={styles.formGroup}>
+      <Text style={styles.label}>Attachment</Text>
+      <TouchableOpacity style={styles.attachmentGroup} onPress={handleAttachRecording}>
+        <Text style={styles.attachmentText}>
+          {attachment ? 'Replace Recording' : 'Attach Recording'}
+        </Text>
+      </TouchableOpacity>
+      {attachment && <Text style={styles.attachmentText}>Attached: {attachment.split('/').pop()}</Text>}
+    </View>
+
+    <View style={styles.formGroup}>
+      <Text style={styles.label}>Time Slots</Text>
+        <View style={styles.timeInputContainer}>
+      {/* Time Picker Button */}
+      <TouchableOpacity
+        onPress={() => setShowTimePicker(true)}
+        style={[styles.input, styles.timeInput]}
+      >
+        <Text style={styles.timeText}>
+          {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Time Picker Modal */}
+      {showTimePicker && (
+        <DateTimePicker
+          value={time}
+          mode="time"
+          is24Hour={false}
+          display="spinner"
+          onChange={(event, selectedTime) => {
+            setShowTimePicker(false);
+            if (selectedTime) setTime(selectedTime);
+          }}
+        />
+      )}
+
+      {/* Add Time Slot Button */}
+      <TouchableOpacity
+        style={[
+          styles.addTimeButton,
+          timeSlots.length < numTablets ? {} : { backgroundColor: '#ccc' },
+        ]}
+        onPress={handleAddTimeSlot}
+        disabled={timeSlots.length >= numTablets}
+      >
+        <Text style={styles.plusText}>+</Text>
+      </TouchableOpacity>
       </View>
-    ))}
-  </ScrollView>
-</View>
 
+    {/* Validation Message */}
+    {timeSlots.length >= numTablets && (
+      <Text style={{ color: 'red', marginTop: 5 }}>
+        Time slots cannot exceed the number of tablets.
+      </Text>
+    )}
+
+    {/* Render Time Slots */}
+    <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+      {timeSlots.map((item, index) => (
+        <View key={`${item}-${index}`} style={styles.timeSlotItem}>
+          <Text style={styles.timeSlotText}>{item}</Text>
+          <TouchableOpacity onPress={() => handleRemoveTimeSlot(index)}>
+            <Text style={styles.removeTimeSlotText}>x</Text>
+          </TouchableOpacity>
+        </View>
+      ))}
+    </ScrollView>
+    </View>
 
     <View style={styles.buttonContainer}>
       <TouchableOpacity style={styles.addButton} onPress={handleAddMedication}>
@@ -224,7 +374,7 @@ export default function MedicationTab() {
           <View style={styles.medicationItem}>
             <View style={styles.medicationDetails}>
               <Text style={styles.medicationText}>
-                {item.name} - {item.dosage}, {item.numTablets} tablet(s)
+                {item.name} - {item.dose}, {item.numTablets} tablet(s)
               </Text>
               <Text style={styles.timeSlotsText}>Time Slots: {item.time.join(', ')}</Text>
             </View>
@@ -258,7 +408,8 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     padding: 22,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#fff',
+    paddingBottom: 80,
   },
   heading: {
     marginTop: 35,
@@ -398,5 +549,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#666',
     marginVertical: 20,
+  },
+  attachmentGroup: {
+    backgroundColor: '#FFFFFF', // White background
+    borderColor: '#BBBBBB', // Black border
+    borderWidth: 1, // Border width
+    borderRadius: 8, // Rounded corners
+    padding: 10, // Padding inside the rectangle
+    marginBottom: 5, // Space below the attachment section
+  },
+  attachmentText: {
+    fontSize: 16,
+    color: '#007BFF', // Blue text color for the button
+    fontWeight: 'bold',
+  },
+  checkboxContainer: {
+    flexDirection: 'column',
+  },
+  checkboxItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
 });

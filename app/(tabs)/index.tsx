@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { StyleSheet, FlatList, View, Text, TouchableOpacity, Alert, Dimensions } from 'react-native';
+import { StyleSheet, FlatList, View, Text, TouchableOpacity, Alert, Dimensions, TextInput } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { ThemedView } from '@/components/ThemedView';
+
 
 export default function HomeScreen() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -13,6 +14,9 @@ export default function HomeScreen() {
     dosage: string;
     time: string;
     status: 'Taken' | 'Missed' | null;
+    notified: boolean; // Track if notified about the missed dose
+    quantityTaken: string | null;
+    timeTaken: string | null;
   };
 
   type MedicationsByDate = {
@@ -21,11 +25,11 @@ export default function HomeScreen() {
 
   const sampleMedications: MedicationsByDate = {
     '2024-12-06': [
-      { id: '1', name: 'Aspirin', dosage: '1 tablet', time: '8:00 AM', status: null },
-      { id: '2', name: 'Vitamin D', dosage: '2 capsules', time: '12:00 PM', status: null },
+      { id: '1', name: 'Aspirin', dosage: '1 tablet', time: '8:00 AM', status: null, notified: false, quantityTaken: null, timeTaken: null },
+      { id: '2', name: 'Vitamin D', dosage: '2 capsules', time: '12:00 PM', status: null, notified: false, quantityTaken: null, timeTaken: null },
     ],
     '2024-12-07': [
-      { id: '3', name: 'Metformin', dosage: '500mg', time: '8:00 AM', status: null },
+      { id: '3', name: 'Metformin', dosage: '500mg', time: '8:00 AM', status: null, notified: false, quantityTaken: null, timeTaken: null },
     ],
   };
 
@@ -34,13 +38,36 @@ export default function HomeScreen() {
     setMedications(sampleMedications[day.dateString] || []);
   };
 
-  const markAs = (id: string, status: 'Taken' | 'Missed') => {
+  const markAs = (id: string, status: 'Taken' | 'Missed', quantity: string | null, timeTaken: string | null) => {
     setMedications((prevMedications) =>
       prevMedications.map((med) =>
-        med.id === id ? { ...med, status } : med
+        med.id === id
+          ? {
+              ...med,
+              status,
+              notified: true,
+              quantityTaken: quantity,
+              timeTaken: timeTaken, // Save the time taken if missed
+            }
+          : med
       )
     );
     Alert.alert('Medication Updated', `Marked as ${status}.`);
+  };
+
+  const handleMissedDose = (med: Medication) => {
+    const now = new Date();
+    const doseTime = new Date(`1970-01-01T${med.time}:00`);
+
+    // If the current time is closer to the next dose, suggest waiting.
+    if (now.getTime() - doseTime.getTime() > 3600000) { // 1 hour threshold
+      Alert.alert(
+        'Missed Dose',
+        'It seems you missed this dose. Since the next dose is close, you may want to take it at the scheduled time.'
+      );
+    } else {
+      Alert.alert('Missed Dose', 'You can take the missed dose now.');
+    }
   };
 
   return (
@@ -66,7 +93,7 @@ export default function HomeScreen() {
           <FlatList
             data={medications}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
+            renderItem={({ item, index }) => (
               <View
                 style={[
                   styles.medicationItem,
@@ -77,7 +104,7 @@ export default function HomeScreen() {
                 {/* Medication details */}
                 <View style={styles.medicationDetails}>
                   <Text style={styles.medicationText}>
-                    {item.name} - {item.dosage}
+                    {item.name} - {item.dosage})
                   </Text>
                   <Text style={styles.medicationTime}>Time: {item.time}</Text>
                 </View>
@@ -97,18 +124,64 @@ export default function HomeScreen() {
                 {/* Action Buttons (lower right) */}
                 {!item.status && (
                   <View style={styles.buttonsContainer}>
-                    <TouchableOpacity
-                      style={styles.takenButton}
-                      onPress={() => markAs(item.id, 'Taken')}
-                    >
-                      <Text style={styles.buttonText}>Taken</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.missedButton}
-                      onPress={() => markAs(item.id, 'Missed')}
-                    >
-                      <Text style={styles.buttonText}>Missed</Text>
-                    </TouchableOpacity>
+                    {/* Quantity Taken Section */}
+                    <View style={styles.inputContainer}>
+                      <Text style={styles.inputLabel}>Quantity Taken</Text>
+                      <TextInput
+                        style={styles.quantityInput}
+                        placeholder="Quantity Taken"
+                        keyboardType="numeric"
+                        value={item.quantityTaken || item.dosage} // Default to required dosage if no value
+                        maxLength={3} // Limit input to reasonable quantity (e.g., 999 max)
+                        onChangeText={(text) => {
+                          // Ensure the quantity is less than or equal to the required dose
+                          const quantity = Math.min(parseInt(text) || 0, parseInt(item.dosage) || 0);
+                          setMedications((prevMedications) =>
+                            prevMedications.map((med) =>
+                              med.id === item.id ? { ...med, quantityTaken: quantity.toString() } : med
+                            )
+                          );
+                        }}
+                      />
+                    </View>
+
+                    {/* Time Taken Section */}
+                    <View style={styles.inputContainer}>
+                      <Text style={styles.inputLabel}>Time Taken</Text>
+                      <TextInput
+                        style={styles.timeInput}
+                        placeholder="HH:MM"
+                        keyboardType="numeric"
+                        value={item.timeTaken || ''} // Allow user to enter time if missed clicking taken/missed
+                        maxLength={5} // Format like HH:MM
+                        onChangeText={(text) => {
+                          setMedications((prevMedications) =>
+                            prevMedications.map((med) =>
+                              med.id === item.id ? { ...med, timeTaken: text } : med
+                            )
+                          );
+                        }}
+                      />
+                    </View>
+
+                    {/* Action Buttons for Taken or Missed */}
+                    <View style={styles.actionButtonsContainer}>
+                      <TouchableOpacity
+                        style={styles.takenButton}
+                        onPress={() => markAs(item.id, 'Taken', item.quantityTaken, item.timeTaken)}
+                      >
+                        <Text style={styles.buttonText}>Taken</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.missedButton}
+                        onPress={() => {
+                          handleMissedDose(item);
+                          markAs(item.id, 'Missed', item.quantityTaken, item.timeTaken);
+                        }}
+                      >
+                        <Text style={styles.buttonText}>Missed</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 )}
               </View>
@@ -136,6 +209,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     backgroundColor: '#fff',
+    paddingBottom: 80,
   },
   calendar: {
     marginBottom: 16,
@@ -151,7 +225,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     justifyContent: 'flex-start',
     padding: 16,
-    marginBottom: 8,
+    marginBottom: 16,
     backgroundColor: '#f9f9f9',
     borderRadius: 8,
     borderWidth: 1,
@@ -159,62 +233,94 @@ const styles = StyleSheet.create({
     position: 'relative', // To position the buttons and status text inside this container
   },
   medicationDetails: {
-    paddingBottom: 25, 
+    paddingBottom: 15, 
   },
   medicationText: {
-    fontSize: width * 0.055, 
-    fontWeight: 'bold',
-  },
-  medicationTime: {
-    fontSize: width * 0.05, 
-    color: '#888',
-  },
-  buttonsContainer: {
-    position: 'absolute',
-    bottom: 10,
-    right: 10,
-    flexDirection: 'row',
-    gap: 8,
-  },
-  takenButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#28a745',
-    borderRadius: 4,
-  },
-  missedButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#dc3545',
-    borderRadius: 4,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: width * 0.045,
-    fontWeight: '700',
-  },
-  statusText: {
-    position: 'absolute',
-    bottom: 20, 
-    right: 20,
     fontSize: width * 0.055,
     fontWeight: 'bold',
   },
-  takenText: {
-    color: 'green',
+  medicationTime: {
+    fontSize: width * 0.05,
+    color: '#888',
   },
-  missedText: {
-    color: 'red',
+  takenButton: {
+    backgroundColor: '#4CAF50',
+    padding: 12,
+    borderRadius: 4,
+    alignItems: 'center',
+    width: 160,
+  },
+  missedButton: {
+    backgroundColor: '#FF5722',
+    padding: 12,
+    borderRadius: 4,
+    alignItems: 'center',
+    width: 160,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: width * 0.045,
+    fontWeight: 'bold',
   },
   takenBackground: {
-    backgroundColor: '#DFFFD6', // Light green
+    backgroundColor: '#d4f8e8',
   },
   missedBackground: {
-    backgroundColor: '#FFD6D6', // Light red
+    backgroundColor: '#ffd6d6',
+  },
+  statusText: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    fontWeight: 'bold',
+    fontSize: width * 0.045,
+  },
+  takenText: {
+    color: '#4CAF50',
+  },
+  missedText: {
+    color: '#FF5722',
   },
   noDataText: {
-    fontSize: width * 0.06,
     textAlign: 'center',
     color: '#888',
+    fontSize: width * 0.05,
+  },
+  buttonsContainer: {
+    marginTop: 15,
+    padding: 15,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  inputContainer: {
+    marginBottom: 15,  // Space between inputs
+  },
+  inputLabel: {
+    fontSize: width * 0.045,
+    fontWeight: 'bold',
+    marginBottom: 5,  // Label space from input
+  },
+  quantityInput: {
+    height: 40,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    paddingLeft: 10,
+    fontSize: width * 0.045,
+  },
+  timeInput: {
+    height: 40,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    paddingLeft: 10,
+    fontSize: width * 0.045,
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',  // Buttons next to each other
+    gap: 10,  // Space between buttons
   },
 });

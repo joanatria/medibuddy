@@ -201,8 +201,10 @@ const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
-    padding: 22,
-    backgroundColor: '#F5F5F5',
+    flex: 1,
+    padding: 16,
+    backgroundColor: '#fff',
+    paddingBottom: 80,
   },
   heading: {
     marginTop: 35,
