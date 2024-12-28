@@ -218,6 +218,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: width * 0.05,
+    marginBottom: 5,
     fontWeight: '600',
   },
   input: {
@@ -226,6 +227,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     padding: 10,
     backgroundColor: '#FFF',
+    fontSize: width * 0.04,
   },
   buttonContainer: {
     flexDirection: 'row',

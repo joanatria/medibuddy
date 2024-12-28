@@ -46,18 +46,30 @@ export default function MedicationTab() {
   const [instructions, setInstructions] = useState('');
   const [attachment, setAttachment] = useState<string | null>(null);
   const [notificationType, setNotificationType] = useState('');
-  const [notificationDetails, setNotificationDetails] = useState<string[]>([]);
-  const [days, setDays] = useState<string[]>([]);
   const [editingId, setEditingId] = useState(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(false);
+  const [notificationDetails, setNotificationDetails] = useState<string[]>([]);
+  const [days, setDays] = useState<string[]>([]);
+  const [dayOption, setDayOption] = useState('');
 
-  const handleCheckboxChange = (value) => {
+  const handleCheckboxChange = (value: string) => {
     if (notificationDetails.includes(value)) {
       setNotificationDetails(notificationDetails.filter((item) => item !== value));
     } else {
       setNotificationDetails([...notificationDetails, value]);
     }
+  };
+
+  const handleDaySelect = (day: string) => {
+    setDays((prevDays) => {
+      const newDays = [...prevDays];
+      if (newDays.includes(day)) {
+        newDays.splice(newDays.indexOf(day), 1); // Remove day if already selected
+      } else {
+        newDays.push(day); // Add day if not selected
+      }
+      return newDays;
+    });
   };
 
   const handleAttachRecording = async () => {
@@ -156,18 +168,6 @@ export default function MedicationTab() {
 
   const handleRemoveTimeSlot = (index) => {
     setTimeSlots((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleDaySelect = (day) => {
-    setDays((prevDays) => {
-      const newDays = [...prevDays];
-      if (newDays.includes(day)) {
-        newDays.splice(newDays.indexOf(day), 1); // Remove day if already selected
-      } else {
-        newDays.push(day); // Add day if not selected
-      }
-      return newDays;
-    });
   };
 
   const clearForm = () => {
@@ -356,6 +356,68 @@ export default function MedicationTab() {
     </ScrollView>
     </View>
 
+    <View style={styles.formGroup}>
+      <Text style={styles.label}>Notification Type</Text>
+      <TextInput
+       style={styles.input}
+       placeholder="Notification Type"
+       placeholderTextColor="#5A5A5A"
+       value={notificationType}
+       onChangeText={setNotificationType}
+      />
+    </View>
+
+    <View style={styles.formGroup}>
+        <Text style={styles.label}>Notification Details</Text>
+        <View>
+          {['10 minutes before', '5 minutes before', 'Exact time'].map((option) => (
+            <TouchableOpacity
+              key={option}
+              style={styles.checkboxContainer}
+              onPress={() => handleCheckboxChange(option)}
+            >
+              <Text style={styles.checkboxText}>
+                {notificationDetails.includes(option) ? '✓ ' : '○ '}
+                {option}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Calendar for Day Selection */}
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Select Days</Text>
+        <Calendar
+          onDayPress={(day) => handleDaySelect(day.dateString)}
+          markedDates={days.reduce((acc, curr) => {
+            acc[curr] = { selected: true };
+            return acc;
+          }, {})}
+          theme={{
+            selectedDayBackgroundColor: '#00adf5',
+            selectedDayTextColor: '#ffffff',
+          }}
+        />
+      </View>
+
+      {/* Day Option Selection */}
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Day Option</Text>
+        {['Daily', 'Every other day', 'Custom'].map((option) => (
+          <TouchableOpacity
+            key={option}
+            style={styles.checkboxContainer}
+            onPress={() => setDayOption(option)}
+          >
+            <Text style={styles.checkboxText}>
+              {dayOption === option ? '✓ ' : '○ '}
+              {option}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
     <View style={styles.buttonContainer}>
       <TouchableOpacity style={styles.addButton} onPress={handleAddMedication}>
         <Text style={styles.buttonText}>{editingId ? 'Update Medication' : 'Add Medication'}</Text>
@@ -407,7 +469,7 @@ const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
-    padding: 22,
+    padding: 16,
     backgroundColor: '#fff',
     paddingBottom: 80,
   },
@@ -564,11 +626,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   checkboxContainer: {
-    flexDirection: 'column',
-  },
-  checkboxItem: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  checkboxText: {
+    fontSize: 16,
+    color: '#333',
   },
 });
