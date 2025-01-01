@@ -1,141 +1,97 @@
 import React, { useState } from 'react';
-import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  Alert,
-  Dimensions,
-  ScrollView,
-} from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import { StyleSheet, View, Text, TouchableOpacity, Alert, Dimensions } from 'react-native';
+import { useRouter } from "expo-router";
+import { FontAwesome } from '@expo/vector-icons'; // Import FontAwesome icons
 
-interface Medicine {
-  id: string;
-  name: string;
-  quantity: number;
-  details: string;
-  availability: boolean;
-}
+export default function Settings() {
+  const router = useRouter();
 
-const predefinedPharmacies = [
-  { id: '1', name: 'Community Pharmacy', address: '123 Main Street, Cityville' },
-  { id: '2', name: 'HealthMart Pharmacy', address: '456 Elm Road, Townsville' },
-];
-
-const predefinedMedicines: Medicine[] = [
-  { id: '1', name: 'Paracetamol', quantity: 50, details: 'Pain reliever', availability: true },
-  { id: '2', name: 'Ibuprofen', quantity: 30, details: 'Anti-inflammatory', availability: true },
-  { id: '3', name: 'Amoxicillin', quantity: 0, details: 'Antibiotic', availability: false },
-];
-
-export default function PharmacyPage() {
-  const [selectedPharmacy, setSelectedPharmacy] = useState(predefinedPharmacies[0].id);
-  const [selectedMedicine, setSelectedMedicine] = useState('');
-  const [medicines, setMedicines] = useState<Medicine[]>([]);
-
-  const handleSelectMedicine = (id: string) => {
-    const medicine = predefinedMedicines.find((med) => med.id === id);
-    if (medicine) {
-      const isAlreadyAdded = medicines.some((med) => med.id === medicine.id);
-      if (isAlreadyAdded) {
-        Alert.alert('Error', 'Medicine is already in the list.');
-        return;
-      }
-
-      setMedicines((prev) => [...prev, medicine]);
-      Alert.alert('Success', 'Medicine added to your refill list.');
-    }
+  // Handle logout confirmation
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to log out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Logout', onPress: () => console.log('Logged out') },
+      ]
+    );
   };
 
-  const handleRefillMedicines = () => {
-    if (medicines.length === 0) {
-      Alert.alert('No Medicines', 'Please select medicines to refill.');
-      return;
-    }
-
+  // Handle report generation confirmation
+  const handleGenerateReport = () => {
     Alert.alert(
-      'Refill Success',
-      `Medicines refilled successfully at ${predefinedPharmacies.find(
-        (ph) => ph.id === selectedPharmacy
-      )?.name}.`
+      'Generate Report',
+      'Are you sure you want to generate the report?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Generate', onPress: () => console.log('Report generated') },
+      ]
     );
-    setMedicines([]);
+  };
+
+  // Navigate to the "Edit Profile" page
+  const navigateToEditProfile = () => {
+    console.log('Navigating to Edit Profile');
+    // Use navigation logic here, e.g., navigation.navigate('EditProfile')
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.heading}>Pharmacy Refill</Text>
+    <View style={styles.container}>
+      <Text style={styles.heading}>Settings</Text>
 
-      {/* Pharmacy Selector */}
-      <Text style={styles.sectionTitle}>Select Pharmacy</Text>
-        <View style={styles.formGroup}>
-        <Picker
-          selectedValue={selectedPharmacy}
-          onValueChange={(itemValue) => setSelectedPharmacy(itemValue)}
-          style={styles.picker}
-          itemStyle={{ color: 'black' }} 
-        >
-          {predefinedPharmacies.map((pharmacy) => (
-            <Picker.Item
-              key={pharmacy.id}
-              label={`${pharmacy.name} (${pharmacy.address})`}
-              value={pharmacy.id}
-              style={{ color: 'black' }} 
-            />
-          ))}
-        </Picker>
-      </View>
-
-      {/* Medicine Selector */}
-      <Text style={styles.sectionTitle}>Select Medicine</Text>
-      <View style={styles.formGroup}>
-        <Picker
-          selectedValue={selectedMedicine}
-          onValueChange={(itemValue) => {
-            setSelectedMedicine(itemValue);
-            handleSelectMedicine(itemValue);
-          }}
-          itemStyle={{ color: 'black' }} 
-          style={styles.picker}
-        >
-          <Picker.Item label="Select a medicine" value="" />
-          {predefinedMedicines.map((medicine) => (
-            <Picker.Item
-              key={medicine.id}
-              label={`${medicine.name} (${medicine.quantity} available)`}
-              value={medicine.id}
-              style={{ color: 'black' }} 
-            />
-          ))}
-        </Picker>
-      </View>
-
-      {/* Refill List */}
-      <Text style={styles.sectionTitle}>Selected Medicines</Text>
-      {medicines.length > 0 ? (
-        <FlatList
-          data={medicines}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.medicineItem}>
-              <Text style={styles.medicineText}>Name: {item.name}</Text>
-              <Text style={styles.medicineText}>Details: {item.details}</Text>
-              <Text style={styles.medicineText}>Availability: {item.availability ? 'In Stock' : 'Out of Stock'}</Text>
-            </View>
-          )}
-          nestedScrollEnabled={true}
-        />
-      ) : (
-        <Text style={styles.noDataText}>No medicines selected yet.</Text>
-      )}
-
-      {/* Refill Button */}
-      <TouchableOpacity style={styles.refillButton} onPress={handleRefillMedicines}>
-        <Text style={styles.buttonText}>Refill Medicines</Text>
+      {/* Generate Report */}
+      <TouchableOpacity onPress={handleGenerateReport}>
+        <View style={styles.optionContainer}>
+          <View style={styles.optionRow}>
+            <Text><FontAwesome name="file-text" size={24} color="#000" style={styles.icon} /> </Text>
+            <Text style={styles.optionText}>Generate Report</Text>
+            <Text style={styles.arrowText}>{'>'}</Text>
+          </View>
+          <Text style={styles.optionDescription}>Generate a report for user medications.</Text>
+          <View style={styles.separator} />
+        </View>
       </TouchableOpacity>
-    </ScrollView>
+
+      {/* Check Pharmacies */}
+      <TouchableOpacity onPress={() => router.push("/pharmacy")}>
+        <View style={styles.optionContainer}>
+          <View style={styles.optionRow}>
+            <Text><FontAwesome name="hospital-o" size={24} color="#000" style={styles.icon} /> </Text>
+            <Text style={styles.optionText}>Check Pharmacies</Text>
+            <Text style={styles.arrowText}>{'>'}</Text>
+          </View>
+          <Text style={styles.optionDescription}>View available pharmacies and their available medicine.</Text>
+          <View style={styles.separator} />
+        </View>
+      </TouchableOpacity>
+
+      {/* Edit Profile */}
+      <TouchableOpacity onPress={() => router.push("/editprofile")}>
+        <View style={styles.optionContainer}>
+          <View style={styles.optionRow}>
+            <Text><FontAwesome name="user" size={24} color="#000" style={styles.icon} /> </Text>
+            <Text style={styles.optionText}>Edit Profile</Text>
+            <Text style={styles.arrowText}>{'>'}</Text>
+          </View>
+          <Text style={styles.optionDescription}>Update your personal and account information.</Text>
+          <View style={styles.separator} />
+        </View>
+      </TouchableOpacity>
+
+      {/* Logout */}
+      <TouchableOpacity onPress={handleLogout}>
+        <View style={styles.optionContainer}>
+          <View style={styles.optionRow}>
+            <Text><FontAwesome name="sign-out" size={24} color="#000" style={styles.icon} /> </Text>
+            <Text style={styles.optionText}>Logout</Text>
+            <Text style={styles.arrowText}>{'>'}</Text>
+          </View>
+          <Text style={styles.optionDescription}>Sign out of your account.</Text>
+          <View style={styles.separator} />
+        </View>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -146,55 +102,46 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     backgroundColor: '#fff',
-    paddingBottom: 80,
+    paddingBottom: 100,
   },
   heading: {
     marginTop: 35,
     textAlign: 'center',
     fontSize: width * 0.05,
     fontWeight: 'bold',
-    marginVertical: 10,
+    marginBottom: 40,
   },
-  sectionTitle: {
-    fontSize: width * 0.05,
-    fontWeight: 'bold',
-    marginBottom: 10,
+  optionContainer: {
+    paddingVertical: 15,
   },
-  formGroup: {
-    marginBottom: 15,
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center', // Align icon and text horizontally
   },
-  picker: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    padding: 10,
-    backgroundColor: '#FFF',
-    color: '#000000'
-  },
-  medicineItem: {
-    padding: 16,
-    backgroundColor: '#FFF',
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  medicineText: {
+  optionText: {
+    color: '#000',
     fontSize: width * 0.045,
-  },
-  refillButton: {
-    backgroundColor: '#28a745',
-    padding: 10,
-    borderRadius: 5,
-  },
-  buttonText: {
-    color: '#FFF',
-    textAlign: 'center',
     fontWeight: 'bold',
-    fontSize: width * 0.04,
+    flex: 1, // This ensures text takes up available space
   },
-  noDataText: {
-    textAlign: 'center',
-    fontSize: width * 0.04,
+  arrowText: {
     color: '#666',
-    marginVertical: 20,
+    fontSize: width * 0.035,
+    textAlign: 'right', // Align arrow text to the right
+    paddingTop: 8,
+  },
+  optionDescription: {
+    color: '#666',
+    fontSize: width * 0.035,
+    textAlign: 'left',
+    marginTop: 5,
+  },
+  separator: {
+    marginTop: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+  },
+  icon: {
+    marginRight: 10, // Space between icon and text
   },
 });
