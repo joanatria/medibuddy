@@ -2,41 +2,43 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Dimensions, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 
-export default function RegisterScreen() {
+export default function EditProfileScreen() {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    firstName: '',
-    middleName: '',
-    lastName: '',
-    phoneNumber: '',
+    username: 'currentUsername', 
+    email: 'currentEmail@example.com',
+    firstName: 'John',
+    middleName: 'Doe',
+    lastName: 'Smith',
+    phoneNumber: '1234567890',
   });
 
   const handleInputChange = (key: string, value: string) => {
     setFormData({ ...formData, [key]: value });
   };
 
-  const handleRegister = () => {
-    const { username, email, password, firstName, lastName, phoneNumber } = formData;
+  const handleUpdateProfile = () => {
+    const { username, email, firstName, lastName, phoneNumber } = formData;
 
-    if (!username || !email || !password || !firstName || !lastName || !phoneNumber) {
+    if (!username || !email || !firstName || !lastName || !phoneNumber) {
       Alert.alert('Error', 'Please fill out all required fields.');
       return;
     }
 
-    Alert.alert('Registration Successful', `Welcome, ${firstName}!`);
-    router.replace("/(tabs)"); // Navigate to the home screen after successful registration
+    Alert.alert('Profile Updated', `Your profile has been updated successfully, ${firstName}!`);
+    router.push("/(tabs)/explore"); 
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.heading}>Create Your Account</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.push("/(tabs)/explore")}>
+            <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+      <Text style={styles.heading}>Edit Your Profile</Text>
 
       {/* Username */}
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Username*</Text>
+        <Text style={styles.label}>Username</Text>
         <TextInput
           style={styles.input}
           placeholder="Username"
@@ -49,7 +51,7 @@ export default function RegisterScreen() {
 
       {/* Email */}
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Email Address*</Text>
+        <Text style={styles.label}>Email Address</Text>
         <TextInput
           style={styles.input}
           placeholder="Email Address"
@@ -63,7 +65,7 @@ export default function RegisterScreen() {
 
       {/* First Name */}
       <View style={styles.formGroup}>
-        <Text style={styles.label}>First Name*</Text>
+        <Text style={styles.label}>First Name</Text>
         <TextInput
           style={styles.input}
           placeholder="First Name"
@@ -87,7 +89,7 @@ export default function RegisterScreen() {
 
       {/* Last Name */}
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Last Name*</Text>
+        <Text style={styles.label}>Last Name</Text>
         <TextInput
           style={styles.input}
           placeholder="Last Name"
@@ -99,7 +101,7 @@ export default function RegisterScreen() {
 
       {/* Phone Number */}
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Phone Number*</Text>
+        <Text style={styles.label}>Phone Number</Text>
         <TextInput
           style={styles.input}
           placeholder="Phone Number"
@@ -110,31 +112,11 @@ export default function RegisterScreen() {
         />
       </View>
 
-      {/* Password */}
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Password*</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          value={formData.password}
-          onChangeText={(text) => handleInputChange('password', text)}
-          secureTextEntry
-          placeholderTextColor="#aaa"
-        />
-      </View>
-
-      {/* Register Button */}
-      <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
-        <Text style={styles.registerButtonText}>Register</Text>
+      {/* Update Button */}
+      <TouchableOpacity style={styles.updateButton} onPress={handleUpdateProfile}>
+        <Text style={styles.updateButtonText}>Update Profile</Text>
       </TouchableOpacity>
 
-      {/* Footer Text */}
-      <Text style={styles.footerText}>
-        Already have an account?{' '}
-        <Text style={styles.link} onPress={() => router.push('/')}>
-          Login
-        </Text>
-      </Text>
     </ScrollView>
   );
 }
@@ -144,21 +126,20 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    padding: 25,
-    justifyContent: 'center',
+    padding: 16,
+    justifyContent: 'flex-start', 
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingBottom: 100,
   },
   heading: {
-    marginTop: 35,
-    fontSize: width * 0.06,
+    paddingTop: 40,
+    fontSize: width * 0.05,
     fontWeight: 'bold',
     marginBottom: 24,
     textAlign: 'center',
   },
   input: {
-    width: '100%',
+    width: '100%', 
     padding: 12,
     marginVertical: 8,
     borderWidth: 1,
@@ -168,36 +149,39 @@ const styles = StyleSheet.create({
     fontSize: width * 0.045,
     color: '#333',
   },
-  registerButton: {
-    width: '90%',
+  updateButton: {
+    width: '100%',  
     paddingVertical: 12,
     backgroundColor: '#007bff',
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 24, 
   },
-  registerButtonText: {
+  updateButtonText: {
     color: '#fff',
     fontSize: width * 0.045,
     fontWeight: 'bold',
   },
-  footerText: {
-    marginTop: 16,
-    fontSize: width * 0.04,
-    color: '#666',
-  },
-  link: {
-    color: '#007bff',
-    fontWeight: 'bold',
-  },
   formGroup: {
-    width: '100%',
+    width: '100%',  
     marginBottom: 15,
   },
   label: {
     fontSize: width * 0.05,
     marginBottom: 3,
     fontWeight: '600',
-    color: '#333',
+    color: '#333', 
+  },
+  backButtonText: {
+    color: '#000',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: width * 0.04,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 35,
+    left: 16,
+    padding: 10,
   },
 });

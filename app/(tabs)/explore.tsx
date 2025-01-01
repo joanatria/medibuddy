@@ -44,7 +44,7 @@ export default function Settings() {
       <TouchableOpacity onPress={handleGenerateReport}>
         <View style={styles.optionContainer}>
           <View style={styles.optionRow}>
-            <FontAwesome name="file-text" size={24} color="#000" style={styles.icon} />
+            <Text><FontAwesome name="file-text" size={24} color="#000" style={styles.icon} /> </Text>
             <Text style={styles.optionText}>Generate Report</Text>
             <Text style={styles.arrowText}>{'>'}</Text>
           </View>
@@ -57,7 +57,7 @@ export default function Settings() {
       <TouchableOpacity onPress={() => router.push("/pharmacy")}>
         <View style={styles.optionContainer}>
           <View style={styles.optionRow}>
-            <FontAwesome name="hospital-o" size={24} color="#000" style={styles.icon} />
+            <Text><FontAwesome name="hospital-o" size={24} color="#000" style={styles.icon} /> </Text>
             <Text style={styles.optionText}>Check Pharmacies</Text>
             <Text style={styles.arrowText}>{'>'}</Text>
           </View>
@@ -67,10 +67,10 @@ export default function Settings() {
       </TouchableOpacity>
 
       {/* Edit Profile */}
-      <TouchableOpacity onPress={navigateToEditProfile}>
+      <TouchableOpacity onPress={() => router.push("/editprofile")}>
         <View style={styles.optionContainer}>
           <View style={styles.optionRow}>
-            <FontAwesome name="user" size={24} color="#000" style={styles.icon} /> {/* Profile icon */}
+            <Text><FontAwesome name="user" size={24} color="#000" style={styles.icon} /> </Text>
             <Text style={styles.optionText}>Edit Profile</Text>
             <Text style={styles.arrowText}>{'>'}</Text>
           </View>
@@ -83,7 +83,7 @@ export default function Settings() {
       <TouchableOpacity onPress={handleLogout}>
         <View style={styles.optionContainer}>
           <View style={styles.optionRow}>
-            <FontAwesome name="sign-out" size={24} color="#000" style={styles.icon} />
+            <Text><FontAwesome name="sign-out" size={24} color="#000" style={styles.icon} /> </Text>
             <Text style={styles.optionText}>Logout</Text>
             <Text style={styles.arrowText}>{'>'}</Text>
           </View>

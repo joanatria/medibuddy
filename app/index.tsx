@@ -29,22 +29,30 @@ export default function LoginScreen() {
     <View style={styles.container}>
       <Text style={styles.heading}>Welcome to MediBuddy!</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Username"
-        value={username}
-        onChangeText={setUsername}
-        autoCapitalize="none"
-        placeholderTextColor="#aaa"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        placeholderTextColor="#aaa"
-      />
+    <View style={styles.formGroup}>
+        <Text style={styles.label}>Username</Text>
+          <TextInput
+          style={styles.input}
+          placeholder="Username"
+          value={username}
+          onChangeText={setUsername}
+          autoCapitalize="none"
+          placeholderTextColor="#aaa"
+        />
+      </View>
+      
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Password</Text>
+        <TextInput
+            style={styles.input}
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholderTextColor="#aaa"
+          />
+      </View>
+      
 
       <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
         <Text style={styles.loginButtonText}>Login</Text>
@@ -73,11 +81,11 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: width * 0.06,
     fontWeight: "bold",
-    marginBottom: 24,
+    marginBottom: 40,
     textAlign: "center",
   },
   input: {
-    width: "90%",
+    width: "100%",
     padding: 12,
     marginVertical: 8,
     borderWidth: 1,
@@ -108,5 +116,15 @@ const styles = StyleSheet.create({
   link: {
     color: "#007bff",
     fontWeight: "bold",
+  },
+  formGroup: {
+    width: '100%',
+    marginBottom: 15,
+  },
+  label: {
+    fontSize: width * 0.05,
+    marginBottom: 3,
+    fontWeight: '600',
+    color: '#333',
   },
 });

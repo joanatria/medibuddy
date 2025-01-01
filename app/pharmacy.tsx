@@ -169,11 +169,11 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   heading: {
-    marginTop: 35,
-    textAlign: 'center',
+    marginTop: 40,
     fontSize: width * 0.05,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 24,
+    textAlign: 'center',
   },
   sectionTitle: {
     fontSize: width * 0.05,
