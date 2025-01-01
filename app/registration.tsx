@@ -61,6 +61,15 @@ const RegisterScreen = () => {
       }
 
       Alert.alert("Registration Successful", `Welcome, ${formData.firstName}!`);
+      setFormData({
+        username: "",
+        email: "",
+        password: "",
+        firstName: "",
+        middleName: "",
+        lastName: "",
+        phoneNumber: "",
+      });
       router.push("/");
     } catch (e) {
       if (e instanceof z.ZodError) {

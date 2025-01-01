@@ -9,17 +9,43 @@ import {
   Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function LoginScreen() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (username && password) {
-      // Mock authentication
-      Alert.alert("Login Successful", `Welcome, ${username}!`);
-      router.replace("/(tabs)"); // Navigate to the home screen
+      try {
+        const response = await fetch(
+          `${apiUrl}login?identifier=${username}&password=${password}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.text();
+          try {
+            await AsyncStorage.setItem("my-key", data);
+          } catch (e) {
+            Alert.alert("Error", "Account key cannot be stored.");
+          }
+          Alert.alert("Login Successful", `Welcome, ${username}!`);
+          router.replace("/(tabs)");
+        } else {
+          const errorData = await response.text();
+          Alert.alert("Error", errorData || "Login failed. Please try again.");
+        }
+      } catch (error) {
+        Alert.alert("Error", "An unexpected error occurred. Please try again.");
+      }
     } else {
       Alert.alert("Error", "Please enter both username and password.");
     }
@@ -29,9 +55,9 @@ export default function LoginScreen() {
     <View style={styles.container}>
       <Text style={styles.heading}>Welcome to MediBuddy!</Text>
 
-    <View style={styles.formGroup}>
+      <View style={styles.formGroup}>
         <Text style={styles.label}>Username</Text>
-          <TextInput
+        <TextInput
           style={styles.input}
           placeholder="Username"
           value={username}
@@ -40,19 +66,18 @@ export default function LoginScreen() {
           placeholderTextColor="#aaa"
         />
       </View>
-      
+
       <View style={styles.formGroup}>
         <Text style={styles.label}>Password</Text>
         <TextInput
-            style={styles.input}
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholderTextColor="#aaa"
-          />
+          style={styles.input}
+          placeholder="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          placeholderTextColor="#aaa"
+        />
       </View>
-      
 
       <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
         <Text style={styles.loginButtonText}>Login</Text>
@@ -118,13 +143,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   formGroup: {
-    width: '100%',
+    width: "100%",
     marginBottom: 15,
   },
   label: {
     fontSize: width * 0.05,
     marginBottom: 3,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
 });

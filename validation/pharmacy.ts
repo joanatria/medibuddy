@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const pharmacySchema = z.object({
-  pharmId: z.number().optional(), // Optional since it might not exist on creation
+  pharmId: z.number(), // Optional since it might not exist on creation
   name: z.string().nonempty("Name is required"), // Required name field
   address: z.string().nonempty("Address is required"), // Required address field
   createdAt: z
