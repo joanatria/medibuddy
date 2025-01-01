@@ -1,38 +1,51 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Alert, Dimensions } from 'react-native';
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  Alert,
+  Dimensions,
+} from "react-native";
 import { useRouter } from "expo-router";
-import { FontAwesome } from '@expo/vector-icons'; // Import FontAwesome icons
+import { FontAwesome } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function Settings() {
   const router = useRouter();
 
-  // Handle logout confirmation
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to log out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', onPress: () => console.log('Logged out') },
-      ]
-    );
+    Alert.alert("Logout", "Are you sure you want to log out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        onPress: async () => {
+          try {
+            await AsyncStorage.clear();
+            router.push("/");
+          } catch (error) {
+            console.error("Error logging out:", error);
+          }
+        },
+      },
+    ]);
   };
 
   // Handle report generation confirmation
   const handleGenerateReport = () => {
     Alert.alert(
-      'Generate Report',
-      'Are you sure you want to generate the report?',
+      "Generate Report",
+      "Are you sure you want to generate the report?",
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Generate', onPress: () => console.log('Report generated') },
+        { text: "Cancel", style: "cancel" },
+        { text: "Generate", onPress: () => console.log("Report generated") },
       ]
     );
   };
 
   // Navigate to the "Edit Profile" page
   const navigateToEditProfile = () => {
-    console.log('Navigating to Edit Profile');
+    console.log("Navigating to Edit Profile");
     // Use navigation logic here, e.g., navigation.navigate('EditProfile')
   };
 
@@ -44,11 +57,20 @@ export default function Settings() {
       <TouchableOpacity onPress={handleGenerateReport}>
         <View style={styles.optionContainer}>
           <View style={styles.optionRow}>
-            <Text><FontAwesome name="file-text" size={24} color="#000" style={styles.icon} /> </Text>
+            <Text>
+              <FontAwesome
+                name="file-text"
+                size={24}
+                color="#000"
+                style={styles.icon}
+              />{" "}
+            </Text>
             <Text style={styles.optionText}>Generate Report</Text>
-            <Text style={styles.arrowText}>{'>'}</Text>
+            <Text style={styles.arrowText}>{">"}</Text>
           </View>
-          <Text style={styles.optionDescription}>Generate a report for user medications.</Text>
+          <Text style={styles.optionDescription}>
+            Generate a report for user medications.
+          </Text>
           <View style={styles.separator} />
         </View>
       </TouchableOpacity>
@@ -57,11 +79,20 @@ export default function Settings() {
       <TouchableOpacity onPress={() => router.push("/pharmacy")}>
         <View style={styles.optionContainer}>
           <View style={styles.optionRow}>
-            <Text><FontAwesome name="hospital-o" size={24} color="#000" style={styles.icon} /> </Text>
+            <Text>
+              <FontAwesome
+                name="hospital-o"
+                size={24}
+                color="#000"
+                style={styles.icon}
+              />{" "}
+            </Text>
             <Text style={styles.optionText}>Check Pharmacies</Text>
-            <Text style={styles.arrowText}>{'>'}</Text>
+            <Text style={styles.arrowText}>{">"}</Text>
           </View>
-          <Text style={styles.optionDescription}>View available pharmacies and their available medicine.</Text>
+          <Text style={styles.optionDescription}>
+            View available pharmacies and their available medicine.
+          </Text>
           <View style={styles.separator} />
         </View>
       </TouchableOpacity>
@@ -70,11 +101,20 @@ export default function Settings() {
       <TouchableOpacity onPress={() => router.push("/editprofile")}>
         <View style={styles.optionContainer}>
           <View style={styles.optionRow}>
-            <Text><FontAwesome name="user" size={24} color="#000" style={styles.icon} /> </Text>
+            <Text>
+              <FontAwesome
+                name="user"
+                size={24}
+                color="#000"
+                style={styles.icon}
+              />{" "}
+            </Text>
             <Text style={styles.optionText}>Edit Profile</Text>
-            <Text style={styles.arrowText}>{'>'}</Text>
+            <Text style={styles.arrowText}>{">"}</Text>
           </View>
-          <Text style={styles.optionDescription}>Update your personal and account information.</Text>
+          <Text style={styles.optionDescription}>
+            Update your personal and account information.
+          </Text>
           <View style={styles.separator} />
         </View>
       </TouchableOpacity>
@@ -83,11 +123,20 @@ export default function Settings() {
       <TouchableOpacity onPress={handleLogout}>
         <View style={styles.optionContainer}>
           <View style={styles.optionRow}>
-            <Text><FontAwesome name="sign-out" size={24} color="#000" style={styles.icon} /> </Text>
+            <Text>
+              <FontAwesome
+                name="sign-out"
+                size={24}
+                color="#000"
+                style={styles.icon}
+              />{" "}
+            </Text>
             <Text style={styles.optionText}>Logout</Text>
-            <Text style={styles.arrowText}>{'>'}</Text>
+            <Text style={styles.arrowText}>{">"}</Text>
           </View>
-          <Text style={styles.optionDescription}>Sign out of your account.</Text>
+          <Text style={styles.optionDescription}>
+            Sign out of your account.
+          </Text>
           <View style={styles.separator} />
         </View>
       </TouchableOpacity>
@@ -95,51 +144,51 @@ export default function Settings() {
   );
 }
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     paddingBottom: 100,
   },
   heading: {
     marginTop: 35,
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: width * 0.05,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 40,
   },
   optionContainer: {
     paddingVertical: 15,
   },
   optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center', // Align icon and text horizontally
+    flexDirection: "row",
+    alignItems: "center", // Align icon and text horizontally
   },
   optionText: {
-    color: '#000',
+    color: "#000",
     fontSize: width * 0.045,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     flex: 1, // This ensures text takes up available space
   },
   arrowText: {
-    color: '#666',
+    color: "#666",
     fontSize: width * 0.035,
-    textAlign: 'right', // Align arrow text to the right
+    textAlign: "right", // Align arrow text to the right
     paddingTop: 8,
   },
   optionDescription: {
-    color: '#666',
+    color: "#666",
     fontSize: width * 0.035,
-    textAlign: 'left',
+    textAlign: "left",
     marginTop: 5,
   },
   separator: {
     marginTop: 5,
     borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
+    borderBottomColor: "#ccc",
   },
   icon: {
     marginRight: 10, // Space between icon and text

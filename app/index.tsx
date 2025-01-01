@@ -20,7 +20,7 @@ export default function LoginScreen() {
   useEffect(() => {
     const checkUserId = async () => {
       try {
-        const userId = await AsyncStorage.getItem("my-key");
+        const userId = await AsyncStorage.getItem("userId");
         if (userId) {
           router.replace("/(tabs)");
         }
@@ -48,7 +48,7 @@ export default function LoginScreen() {
         if (response.ok) {
           const data = await response.text();
           try {
-            await AsyncStorage.setItem("my-key", data);
+            await AsyncStorage.setItem("userId", data);
           } catch (e) {
             Alert.alert("Error", "Account key cannot be stored.");
           }
