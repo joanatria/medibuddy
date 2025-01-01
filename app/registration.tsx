@@ -1,33 +1,74 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Dimensions, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Dimensions,
+  ScrollView,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { UserSchema, userSchema } from "@/validation/user";
+import { z } from "zod";
 
-export default function RegisterScreen() {
+const RegisterScreen = () => {
   const router = useRouter();
-  const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    firstName: '',
-    middleName: '',
-    lastName: '',
-    phoneNumber: '',
+  const [formData, setFormData] = useState<UserSchema>({
+    username: "",
+    email: "",
+    password: "",
+    firstName: "",
+    middleName: "",
+    lastName: "",
+    phoneNumber: "",
   });
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
   const handleInputChange = (key: string, value: string) => {
     setFormData({ ...formData, [key]: value });
+
+    try {
+      (userSchema as any).pick({ [key]: true }).parse({ [key]: value });
+      setErrors((prevErrors) => ({ ...prevErrors, [key]: "" }));
+    } catch (e) {
+      if (e instanceof z.ZodError) {
+        setErrors((prevErrors) => ({
+          ...prevErrors,
+          [key]: e.errors[0].message,
+        }));
+      }
+    }
   };
 
-  const handleRegister = () => {
-    const { username, email, password, firstName, lastName, phoneNumber } = formData;
+  const handleRegister = async () => {
+    try {
+      userSchema.parse(formData);
 
-    if (!username || !email || !password || !firstName || !lastName || !phoneNumber) {
-      Alert.alert('Error', 'Please fill out all required fields.');
-      return;
+      const response = await fetch(`${apiUrl}register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Registration failed");
+      }
+
+      Alert.alert("Registration Successful", `Welcome, ${formData.firstName}!`);
+      router.push("/");
+    } catch (e) {
+      if (e instanceof z.ZodError) {
+        Alert.alert("Error", e.errors.map((error) => error.message).join("\n"));
+      } else {
+        Alert.alert("Error", (e as Error).message);
+      }
     }
-
-    Alert.alert('Registration Successful', `Welcome, ${firstName}!`);
-    router.replace("(tabs)"); // Navigate to the home screen after successful registration
   };
 
   return (
@@ -38,118 +79,146 @@ export default function RegisterScreen() {
         style={styles.input}
         placeholder="Username*"
         value={formData.username}
-        onChangeText={(text) => handleInputChange('username', text)}
+        onChangeText={(text) => handleInputChange("username", text)}
         autoCapitalize="none"
         placeholderTextColor="#aaa"
       />
+      {errors.username && (
+        <Text style={styles.errorText}>{errors.username}</Text>
+      )}
       <TextInput
         style={styles.input}
         placeholder="Email*"
         value={formData.email}
-        onChangeText={(text) => handleInputChange('email', text)}
+        onChangeText={(text) => handleInputChange("email", text)}
         keyboardType="email-address"
         autoCapitalize="none"
         placeholderTextColor="#aaa"
       />
+      {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
       <TextInput
         style={styles.input}
         placeholder="Password*"
         value={formData.password}
-        onChangeText={(text) => handleInputChange('password', text)}
+        onChangeText={(text) => handleInputChange("password", text)}
         secureTextEntry
         placeholderTextColor="#aaa"
       />
+      {errors.password && (
+        <Text style={styles.errorText}>{errors.password}</Text>
+      )}
       <TextInput
         style={styles.input}
         placeholder="First Name*"
         value={formData.firstName}
-        onChangeText={(text) => handleInputChange('firstName', text)}
+        onChangeText={(text) => handleInputChange("firstName", text)}
         placeholderTextColor="#aaa"
       />
+      {errors.firstName && (
+        <Text style={styles.errorText}>{errors.firstName}</Text>
+      )}
       <TextInput
         style={styles.input}
         placeholder="Middle Name"
         value={formData.middleName}
-        onChangeText={(text) => handleInputChange('middleName', text)}
+        onChangeText={(text) => handleInputChange("middleName", text)}
         placeholderTextColor="#aaa"
       />
+      {errors.middleName && (
+        <Text style={styles.errorText}>{errors.middleName}</Text>
+      )}
       <TextInput
         style={styles.input}
         placeholder="Last Name*"
         value={formData.lastName}
-        onChangeText={(text) => handleInputChange('lastName', text)}
+        onChangeText={(text) => handleInputChange("lastName", text)}
         placeholderTextColor="#aaa"
       />
+      {errors.lastName && (
+        <Text style={styles.errorText}>{errors.lastName}</Text>
+      )}
       <TextInput
         style={styles.input}
         placeholder="Phone Number*"
         value={formData.phoneNumber}
-        onChangeText={(text) => handleInputChange('phoneNumber', text)}
+        onChangeText={(text) => handleInputChange("phoneNumber", text)}
         keyboardType="phone-pad"
         placeholderTextColor="#aaa"
       />
+      {errors.phoneNumber && (
+        <Text style={styles.errorText}>{errors.phoneNumber}</Text>
+      )}
 
       <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
         <Text style={styles.registerButtonText}>Register</Text>
       </TouchableOpacity>
 
       <Text style={styles.footerText}>
-        Already have an account?{' '}
-        <Text style={styles.link} onPress={() => router.push('/')}>
-            Login
+        Already have an account?{" "}
+        <Text style={styles.link} onPress={() => router.push("/")}>
+          Login
         </Text>
-    </Text>
+      </Text>
     </ScrollView>
   );
-}
+};
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     padding: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
   },
   heading: {
     fontSize: width * 0.06,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 24,
-    textAlign: 'center',
+    textAlign: "center",
   },
   input: {
-    width: '90%',
+    width: "90%",
     padding: 12,
     marginVertical: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 8,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
     fontSize: width * 0.045,
-    color: '#333',
+    color: "#333",
   },
   registerButton: {
-    width: '90%',
+    width: "90%",
     paddingVertical: 12,
-    backgroundColor: '#007bff',
+    backgroundColor: "#007bff",
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 16,
   },
   registerButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: width * 0.045,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   footerText: {
     marginTop: 16,
     fontSize: width * 0.04,
-    color: '#666',
+    color: "#666",
   },
   link: {
-    color: '#007bff',
-    fontWeight: 'bold',
+    color: "#007bff",
+    fontWeight: "bold",
+  },
+  errorText: {
+    color: "red",
+    fontSize: width * 0.035,
+    marginTop: -8,
+    marginBottom: 8,
+    width: "90%",
   },
 });
+
+export default RegisterScreen;
