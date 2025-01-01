@@ -10,78 +10,88 @@ import {
   Dimensions,
   ScrollView,
   Button,
+  Modal,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as DocumentPicker from "expo-document-picker";
-import DropDownPicker from 'react-native-dropdown-picker';
+import DropDownPicker from "react-native-dropdown-picker";
+import Checkbox from "expo-checkbox";
+import { MaterialIcons } from "@expo/vector-icons";
+import { medicineSchema, MedicineSchema } from "@/validation/medicine";
+import { medSchedSchema, MedSchedSchema } from "@/validation/schedule";
 
-interface Medication {
-  id: string;
-  name: string;
-  description: string;
-  instructions: string;
-  dose: string;
-  numTablets: string;
-  intTablets: string;
-  currTablets: string;
-  unit: string;
-  time: string;
-  attachment?: Attachment;
-  notificationType: string;
-  notificationDetails: string[];
-  days: string;
-}
 interface Attachment {
   uri: string;
   name: string;
   size?: number;
   type: string;
 }
+
 export default function MedicationTab() {
-  const [medicationName, setMedicationName] = useState("");
-  const [dose, setDose] = useState("");
-  const [numTablets, setNumTablets] = useState("");
-  const [intTablets, setIntTablets] = useState("");
-  const [currTablets, setCurrTablets] = useState("");
-  const [unit, setUnit] = useState("");
-  const [time, setTime] = useState(new Date());
-  const [timeSlots, setTimeSlots] = useState<string[]>([]);
-  const [medications, setMedications] = useState<Medication[]>([]);
-  const [description, setDescription] = useState("");
-  const [instructions, setInstructions] = useState("");
-  const [attachment, setAttachment] = useState<Attachment | null>(null);
-  const [notificationType, setNotificationType] = useState("");
+  const [medications, setMedications] = useState<MedicineSchema[]>([]);
+  const [schedules, setSchedules] = useState<MedSchedSchema[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [notificationDetails, setNotificationDetails] = useState<string[]>([]);
-  const [days, setDays] = useState("");
-  const [dayOption, setDayOption] = useState("");
-  const [dropdownOpen, setDropdownOpen] = useState(false); 
-  const [isEveryHours, setIsEveryHours] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [startTime, setStartTime] = useState(new Date());
-  const [intervalHours, setIntervalHours] = useState("");
-  
+  const [isEveryHours, setIsEveryHours] = useState(true);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [dayPickerOpen, setDayPickerOpen] = useState(false);
+  const [dayPickerValue, setDayPickerValue] = useState("");
+  const [medicationFormData, setMedicationFormData] = useState({
+    name: "",
+    userId: 0,
+    description: "",
+    instructions: "",
+    dose: "",
+    requiredQty: "",
+    initialQty: "",
+    currentQty: "",
+    unit: "",
+    notificationType: "",
+    notifDetails: "",
+    attachments: "",
+    fileType: "",
+    files: [] as Uint8Array[],
+  });
 
-  const handleCheckboxChange = (value: string) => {
-    if (notificationDetails.includes(value)) {
-      setNotificationDetails(
-        notificationDetails.filter((item) => item !== value)
-      );
-    } else {
-      setNotificationDetails([...notificationDetails, value]);
-    }
+  const [scheduleFormData, setScheduleFormData] = useState({
+    medId: 0,
+    day: new Date(),
+    time: new Date(),
+    timeSlots: [] as string[],
+    timeTaken: new Date(),
+    taken: false,
+    qtyTaken: "",
+    action: "",
+  });
+
+  const handleMedicationChange = (name: string, value: string) => {
+    setMedicationFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleDaySelect = (day: string) => {
-    setDays((prevDays) => {
-      const newDays = [...prevDays];
-      if (newDays.includes(day)) {
-        newDays.splice(newDays.indexOf(day), 1); // Remove day if already selected
-      } else {
-        newDays.push(day); // Add day if not selected
-      }
-      return newDays;
-    });
+  const handleScheduleChange = (name: string, value: string) => {
+    setScheduleFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCheckboxChange = (value: string) => {
+    if (medicationFormData.notifDetails.includes(value)) {
+      setMedicationFormData((prev) => ({
+        ...prev,
+        notifDetails: prev.notifDetails
+          .split(", ")
+          .filter((item) => item !== value)
+          .join(", "),
+      }));
+    } else {
+      setMedicationFormData((prev) => ({
+        ...prev,
+        notifDetails: prev.notifDetails
+          ? `${prev.notifDetails}, ${value}`
+          : value,
+      }));
+    }
   };
 
   const handleAttachRecording = async () => {
@@ -92,19 +102,19 @@ export default function MedicationTab() {
           copyToCacheDirectory: true,
         });
 
-      // Type guard to check if the result is a success
       if (result.assets && result.assets.length > 0) {
         const newAttachments: Attachment[] = result.assets.map((asset) => ({
           uri: asset.uri,
           name: asset.name,
           size: asset.size,
-          type: asset.mimeType || "audio", // Fallback for MIME type
+          type: asset.mimeType || "audio",
         }));
-        // Assuming you want to set the first attachment
-        setAttachment(newAttachments[0]);
+        setMedicationFormData((prev) => ({
+          ...prev,
+          attachment: newAttachments[0],
+        }));
         Alert.alert("Success", "Attachment added successfully!");
       } else {
-        // Handle cancellation case
         Alert.alert("Cancelled", "No file was selected.");
       }
     } catch (error) {
@@ -112,468 +122,486 @@ export default function MedicationTab() {
     }
   };
 
-  const handleDeleteMedication = (id: string) => {
-    setMedications((prev) => prev.filter((med) => med.id !== id));
+  const handleDeleteMedication = (id: number) => {
     Alert.alert("Success", "Medication deleted successfully!");
   };
 
-  const handleEditMedication = (id: string) => {
-    const medication = medications.find((med) => med.id === id);
+  const handleEditMedication = (id: number) => {
+    const medication = medications.find((med) => med.medId ?? 0);
     if (medication) {
-      setMedicationName(medication.name);
-      setDescription(medication.description);
-      setInstructions(medication.instructions);
-      setDose(medication.dose);
-      setNumTablets(medication.numTablets);
-      setIntTablets(medication.intTablets);
-      setCurrTablets(medication.currTablets);
-      setUnit(medication.unit);
-      setTimeSlots(medication.time.split(", "));
-      setAttachment(medication.attachment || null);
-      setNotificationType(medication.notificationType);
-      setNotificationDetails(medication.notificationDetails);
-      setDays(medication.days);
-      setEditingId(medication.id);
+      setMedicationFormData({
+        name: medication.name,
+        userId: medication.userId,
+        description: medication.description,
+        instructions: medication.instructions,
+        dose: medication.dose,
+        requiredQty: medication.requiredQty,
+        initialQty: medication.initialQty,
+        currentQty: medication.currentQty,
+        unit: medication.unit,
+        notificationType: medication.notificationType,
+        notifDetails: medication.notifDetails,
+        attachments: medication.attachments ?? "",
+        fileType: medication.fileType ?? "",
+        files: medication.files ?? [],
+      });
     }
-  };
-
-  const handleAddMedication = () => {
-    if (!medicationName.trim()) {
-      Alert.alert("Invalid Input", "Medication name is required.");
-      return;
-    }
-    if (!description.trim()) {
-      Alert.alert("Invalid Input", "Description is required.");
-      return;
-    }
-    if (!instructions.trim()) {
-      Alert.alert("Invalid Input", "Instructions are required.");
-      return;
-    }
-    if (!dose.trim()) {
-      Alert.alert("Invalid Input", "Dose is required.");
-      return;
-    }
-    if (!numTablets.trim()) {
-      Alert.alert("Invalid Input", "Required number of tablets is required.");
-      return;
-    }
-    if (!intTablets.trim()) {
-      Alert.alert("Invalid Input", "Initial number of tablets is required.");
-      return;
-    }
-    if (!currTablets.trim()) {
-      Alert.alert("Invalid Input", "Current number of tablets is required.");
-      return;
-    }
-    if (!unit.trim()) {
-      Alert.alert("Invalid Input", "Unit is required.");
-      return;
-    }
-    if (timeSlots.length === 0) {
-      Alert.alert("Invalid Input", "At least one time slot is required.");
-      return;
-    }
-    if (days.length === 0) {
-      Alert.alert("Invalid Input", "At least one day is required.");
-      return;
-    }
-
-    const newMedication = {
-      id: editingId || Date.now().toString(),
-      name: medicationName.trim(),
-      description: description.trim(),
-      instructions: instructions.trim(),
-      dose: dose.trim(),
-      numTablets: numTablets.trim(),
-      intTablets: intTablets.trim(),
-      currTablets: currTablets.trim(),
-      unit: unit ? unit.trim() : "",
-      time: timeSlots.join(", "),
-      attachment: attachment || undefined,
-      notificationType,
-      notificationDetails,
-      days,
-    };
-
-    setMedications((prev) =>
-      editingId
-        ? prev.map((med) => (med.id === editingId ? newMedication : med))
-        : [...prev, newMedication]
-    );
-
-    clearForm();
-    Alert.alert(
-      "Success",
-      editingId
-        ? "Medication updated successfully!"
-        : "Medication added successfully!"
-    );
   };
 
   const handleAddTimeSlot = () => {
-    const tabletCount = parseInt(numTablets, 10);
-    if (tabletCount <= 1 && timeSlots.length >= 1) {
+    const tabletCount = parseInt(medicationFormData.requiredQty, 10);
+    if (tabletCount <= 1 && scheduleFormData.timeSlots.length >= 1) {
       alert("You can only add one time slot for a single tablet.");
       return;
     }
-    const formattedTime = time.toLocaleTimeString([], {
+    const formattedTime = scheduleFormData.time.toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     });
-    setTimeSlots([...timeSlots, formattedTime]);
+    setScheduleFormData((prev) => ({
+      ...prev,
+      timeSlots: [...prev.timeSlots, formattedTime],
+    }));
   };
-
-  const handleRemoveTimeSlot = (index: number) => {
-    setTimeSlots((prev) => prev.filter((_, i) => i !== index));
+  const handleInputChange = (key: string, value: string) => {
+    setMedicationFormData({ ...medicationFormData, [key]: value });
+    setScheduleFormData({ ...scheduleFormData, [key]: value });
   };
-
   const clearForm = () => {
-    setMedicationName("");
-    setDescription("");
-    setInstructions("");
-    setDose("");
-    setNumTablets("");
-    setIntTablets("");
-    setCurrTablets("");
-    setUnit("");
-    setTime(new Date());
-    setTimeSlots([]);
-    setAttachment(null);
-    setNotificationType("");
-    setNotificationDetails([]);
-    setDays("");
+    setMedicationFormData({
+      name: "",
+      userId: 0,
+      description: "",
+      instructions: "",
+      dose: "",
+      requiredQty: "",
+      initialQty: "",
+      currentQty: "",
+      unit: "",
+      notificationType: "",
+      notifDetails: "",
+      attachments: "",
+      fileType: "",
+      files: [],
+    });
+    setScheduleFormData({
+      medId: 0,
+      time: new Date(),
+      day: new Date(),
+      timeSlots: [],
+      timeTaken: new Date(),
+      taken: false,
+      qtyTaken: "",
+      action: "",
+    });
     setEditingId(null);
     setShowTimePicker(false);
     setShowCalendar(false);
   };
 
+  const handleAddCustomTime = () => {
+    setIsModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalVisible(false);
+  };
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.heading}>
-        {editingId ? "Edit Medication" : "Add Medication"}
-      </Text>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Medication Name</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter medication name"
-          placeholderTextColor="#5A5A5A"
-          value={medicationName}
-          onChangeText={setMedicationName}
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Description</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter description"
-          placeholderTextColor="#5A5A5A"
-          value={description}
-          onChangeText={setDescription}
-        />
-      </View>
-
-      <View style={styles.timeInputContainer}>
-      <View style={[styles.formGroup, { flex: 1 }]}>
-        <Text style={[styles.label, { marginBottom: 7 }]}>Quantity Bought</Text>
-        <TextInput
-          style={[styles.input, { padding: 13 }]}
-          placeholder="e.g., 30"
-          placeholderTextColor="#5A5A5A"
-          value={intTablets}  
-          onChangeText={(text) => setIntTablets(text.replace(/[^0-9]/g, ""))}
-          keyboardType="numeric"
-        />
-      </View>
-
-      <View style={[styles.formGroup, { flex: 1, marginLeft: 10 }]}>
-        <Text style={styles.label}>Unit</Text>
-        <DropDownPicker
-          open={dropdownOpen}
-          value={unit}
-          items={[
-            { label: 'mL', value: 'mL' },
-            { label: 'pieces', value: 'pieces' },
-          ]}
-          setOpen={setDropdownOpen} 
-          setValue={setUnit} 
-          setItems={() => {}}
-          containerStyle={styles.dropdownContainer}
-          style={styles.dropdown}
-          dropDownContainerStyle={styles.dropdownList}
-          textStyle={styles.dropdownText} 
-        />
-      </View>
-      </View>
-
-      <View style={styles.timeInputContainer}>
-        {/* Dosage Input */}
-        <View style={[styles.formGroup, { flex: 1 }]}>
-          <Text style={[styles.label, { marginBottom: 7 }]}>Dosage</Text>
-          <TextInput
-            style={[styles.input, { padding: 13 }]}
-            placeholder="e.g., 30"
-            placeholderTextColor="#5A5A5A"
-            value={intTablets}
-            onChangeText={(text) => setIntTablets(text.replace(/[^0-9]/g, ""))}
-            keyboardType="numeric"
-          />
-        </View>
-
-        {/* Unit (readonly input) */}
-        <View style={{ flex: 0.7 , marginLeft: 10, borderBottomWidth: 1, borderColor: '#ccc', marginTop: 18, width: 50 }}>
-          <TextInput
-            style={[styles.input, { padding: 10, borderColor: '#fff' }]}
-            value={unit} 
-            editable={false} 
-          />
-        </View>
-
-        {/* "per take" text */}
-        <View style={[styles.formGroup, { flex: 1.3 , justifyContent: "center", marginLeft: 10, marginTop: 55 }]}>
-          <Text style={[{ marginBottom: 0, fontSize: 18, fontWeight: 500 }]}>per take</Text>
-        </View>
-      </View>
-
-      <View style={styles.timeInputContainer}>
-        <View style={[styles.formGroup, { flex: 1 }]}>
-          <Text style={[styles.label, { marginBottom: 7 }]}>Instructions</Text>
-          <TextInput
-            style={[styles.input, { padding: 13 }]}
-            placeholder="e.g., 30"
-            placeholderTextColor="#5A5A5A"
-            value={instructions}
-            onChangeText={(text) => setInstructions(text.replace(/[^0-9]/g, ""))}
-            keyboardType="numeric"
-          />
-        </View>
-
-        <View style={[styles.formGroup, { flex: 1.2 , justifyContent: "center", marginLeft: 10, marginTop: 55 }]}>
-          <Text style={[{ marginBottom: 0, fontSize: 18, fontWeight: 500 }]}>times a day for</Text>
-        </View>
-
-        <View style={{ flex: 0.4 , marginTop: 18}}>
-          <TextInput
-            style={[styles.input, { padding: 13 }]}
-            placeholder="0"
-            placeholderTextColor="#5A5A5A"
-            value={days}  
-            onChangeText={(text) => setDays(text.replace(/[^0-9]/g, ""))}
-            keyboardType="numeric"
-          />
-        </View>
-
-        <View style={[styles.formGroup, { flex: 0.5 , justifyContent: "center", marginLeft: 10, marginTop: 55 }]}>
-          <Text style={[{ marginBottom: 0, fontSize: 18, fontWeight: 500 }]}>days</Text>
-        </View>
-      </View>
-
-      {/* Day Option Selection */}
-      <View style={styles.formGroup}>
-        {["Daily", "Every other day"].map((option) => (
-          <TouchableOpacity
-            key={option}
-            style={styles.checkboxContainer}
-            onPress={() => setDayOption(option)}
-          >
-            <Text style={styles.checkboxText}>
-              {dayOption === option ? "✓ " : "○ "}
-              {option}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-    {/* Time Slot Selection */}
-    <View style={styles.formGroup}>
-      <Text style={styles.label}>Time Slot Selection</Text>
-
-      {/* "Every ___ hrs starting __:___" option */}
-      <TouchableOpacity onPress={() => setIsEveryHours(true)}>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}> 
-        <Text style={styles.checkboxText}>
-          {isEveryHours ? "✓ " : "○ "}Every
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollViewContent}>
+        <Text style={styles.heading}>
+          {editingId ? "Edit Medication" : "Add Medication"}
         </Text>
 
-        <TextInput
-          style={[styles.input, { width: 50, marginLeft: 5 }]}
-          placeholder="hrs"
-          value={intervalHours}
-          onChangeText={(text) => setIntervalHours(text.replace(/[^0-9]/g, ""))}
-          keyboardType="numeric"
-        />
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Medication Name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter medication name"
+            placeholderTextColor="#5A5A5A"
+            value={medicationFormData.name}
+            onChangeText={(text) =>
+              handleMedicationChange("medicationName", text)
+            }
+          />
+        </View>
 
-        <Text style={styles.checkboxText}>hrs starting</Text>
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Description</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter description"
+            placeholderTextColor="#5A5A5A"
+            value={medicationFormData.description}
+            onChangeText={(text) => handleMedicationChange("description", text)}
+          />
+        </View>
 
-        <TouchableOpacity
-          onPress={() => setShowTimePicker(true)} // Show Time Picker on click
-          style={[styles.input, { width: 90, marginLeft: 5, padding: 10 }]}
-        >
-          <Text style={styles.timeText}>
-            {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </Text>
-        </TouchableOpacity>
-      </View>
-   </TouchableOpacity>
-
-    {/* Time Picker for Start Time */}
-    {showTimePicker && (
-      <DateTimePicker
-        value={startTime}
-        mode="time"
-        is24Hour={false}
-        display="spinner"
-        onChange={(event, selectedTime) => {
-          setShowTimePicker(false); 
-          if (selectedTime) setStartTime(selectedTime);
-        }}
-        style={{
-          marginTop: 10,
-          backgroundColor: '#fff', 
-        }} 
-        themeVariant="light" 
-      />
-    )}
-
-  <View style={styles.formGroup}>
-    <TouchableOpacity onPress={() => setIsEveryHours(false)}>
-      <Text style={styles.checkboxText}>
-        {isEveryHours ? "○ " : "✓ "}Custom
-      </Text>
-    </TouchableOpacity>
-
-    {!isEveryHours && (
-      <View>
-        {timeSlots.map((slot, index) => (
-          <View key={index} style={{ marginBottom: 10 }}>
+        <View style={styles.timeInputContainer}>
+          <View style={[styles.formGroup, { flex: 1 }]}>
+            <Text style={[styles.label, { marginBottom: 7 }]}>
+              Quantity Bought
+            </Text>
             <TextInput
               style={[styles.input, { padding: 13 }]}
-              placeholder="Custom Time"
+              placeholder="e.g., 30"
               placeholderTextColor="#5A5A5A"
-              value={slot}
-              onChangeText={(text) => {
-                const newSlots = [...timeSlots];
-                newSlots[index] = text;
-                setTimeSlots(newSlots);
-              }}
+              value={medicationFormData.initialQty}
+              onChangeText={(text) =>
+                handleMedicationChange(
+                  "intTablets",
+                  text.replace(/[^0-9]/g, "")
+                )
+              }
+              keyboardType="numeric"
             />
           </View>
-        ))}
-        <TouchableOpacity
-          style={styles.addTimeButton}
-          onPress={() => setTimeSlots([...timeSlots, ""])}
-        >
-          <Text style={styles.plusText}>+ Add Custom Time</Text>
-        </TouchableOpacity>
-      </View>
-    )}
-  </View>
-    </View>
 
-  {/* Validation Message */}
-    {timeSlots.length >= parseInt(numTablets, 10) && (
-      <Text style={{ color: "red", marginTop: 5 }}>
-        Time slots cannot exceed the number of tablets.
-      </Text>
-    )}
+          <View style={[styles.formGroup, { flex: 1, marginLeft: 10 }]}>
+            <Text style={styles.label}>Unit</Text>
+            <DropDownPicker
+              open={dropdownOpen}
+              value={medicationFormData.unit}
+              items={[
+                { label: "mL", value: "mL" },
+                { label: "pieces", value: "pieces" },
+              ]}
+              setOpen={(open) =>
+                handleScheduleChange("dropdownOpen", open.toString())
+              }
+              setValue={(value) =>
+                handleMedicationChange("unit", value.toString())
+              }
+              setItems={() => {}}
+              containerStyle={styles.dropdownContainer}
+              style={styles.dropdown}
+              dropDownContainerStyle={styles.dropdownList}
+              textStyle={styles.dropdownText}
+            />
+          </View>
+        </View>
 
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Reminder Type</Text>
-        <DropDownPicker
-          open={dropdownOpen}
-          value={notificationType}
-          items={[
-            { label: 'Email', value: 'email' },
-            { label: 'Phone', value: 'phone' },
-            { label: 'Mobile Notification', value: 'mobile' },
-          ]}
-          setOpen={setDropdownOpen}  
-          setValue={setNotificationType}  
-          setItems={() => {}}
-          containerStyle={styles.dropdownContainer}
-          style={styles.dropdown}
-          dropDownContainerStyle={styles.dropdownList}
-          textStyle={styles.dropdownText}  
-        />
-      </View>
+        <View style={[]}>
+          <Text style={styles.label}>Dosage</Text>
 
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Reminder Options</Text>
-        <View>
-          {["10 minutes before", "5 minutes before", "Exact time"].map(
-            (option) => (
-              <TouchableOpacity
-                key={option}
-                style={styles.checkboxContainer}
-                onPress={() => handleCheckboxChange(option)}
+          <View
+            style={[
+              styles.borderedBox,
+              { flexDirection: "row", alignItems: "center" },
+            ]}
+          >
+            <TextInput
+              style={styles.underlinedInput}
+              placeholder="e.g., 10"
+              placeholderTextColor="#5A5A5A"
+              value={medicationFormData.dose}
+              onChangeText={(text) =>
+                handleMedicationChange(
+                  "intTablets",
+                  text.replace(/[^0-9]/g, "")
+                )
+              }
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={[
+                styles.label,
+                {
+                  width: "auto",
+                  fontSize: 15,
+                  fontWeight: "400",
+                  marginTop: 2,
+                },
+              ]}
+              value={medicationFormData.unit}
+              editable={false}
+            />
+            <Text
+              style={[
+                styles.label,
+                { fontSize: 15, fontWeight: "400", marginTop: 2 },
+              ]}
+            >
+              per take
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.timeInputContainer}>
+          <View style={[styles.formGroup, { flex: 1 }]}>
+            <Text style={[styles.label, { marginBottom: 7 }]}>
+              Instructions
+            </Text>
+            <View
+              style={[
+                styles.borderedBox,
+                { flexDirection: "row", alignItems: "center" },
+              ]}
+            >
+              <TextInput
+                style={styles.underlinedInput}
+                placeholder="e.g., 3"
+                placeholderTextColor="#5A5A5A"
+                value={medicationFormData.instructions}
+                onChangeText={(text) =>
+                  handleMedicationChange(
+                    "instructions",
+                    text.replace(/[^0-9]/g, "")
+                  )
+                }
+                keyboardType="numeric"
+              />
+              <Text
+                style={[
+                  styles.label,
+                  { fontSize: 15, fontWeight: "400", marginTop: 2 },
+                ]}
               >
-                <Text style={styles.checkboxText}>
-                  {notificationDetails.includes(option) ? "✓ " : "○ "}
-                  {option}
+                times a day for
+              </Text>
+              <TextInput
+                style={styles.underlinedInput}
+                placeholder="0"
+                placeholderTextColor="#5A5A5A"
+                onChangeText={(text) =>
+                  handleMedicationChange("days", text.replace(/[^0-9]/g, ""))
+                }
+                keyboardType="numeric"
+              />
+              <Text
+                style={[
+                  styles.label,
+                  { fontSize: 15, fontWeight: "400", marginTop: 2 },
+                ]}
+              >
+                days
+              </Text>
+            </View>
+            <DropDownPicker
+              placeholder="Select frequency"
+              open={dayPickerOpen}
+              value={dayPickerValue}
+              items={[
+                { label: "Daily", value: "Daily" },
+                { label: "Every other day", value: "Every other day" },
+              ]}
+              setOpen={(open) =>
+                handleScheduleChange("dayPickerOpen", open.toString())
+              }
+              setValue={(value) =>
+                handleScheduleChange("dayPickerValue", value.toString())
+              }
+              setItems={() => {}}
+              containerStyle={styles.dropdownContainer}
+              style={styles.dropdown}
+              dropDownContainerStyle={styles.dropdownList}
+              textStyle={styles.dropdownText}
+            />
+          </View>
+        </View>
+
+        {/* Time Slot Selection */}
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Time Slot Selection</Text>
+
+          <TouchableOpacity
+            onPress={() => handleScheduleChange("isEveryHours", "true")}
+          >
+            <View
+              style={[
+                styles.input,
+                { flexDirection: "row", alignItems: "center" },
+              ]}
+            >
+              <Text style={styles.checkboxText}>
+                {isEveryHours ? "◉  " : "○ "}Every
+              </Text>
+
+              <TextInput
+                style={[
+                  styles.underlinedInput,
+                  { width: "auto", marginLeft: 5 },
+                ]}
+                placeholder="hrs"
+                onChangeText={(text) =>
+                  handleScheduleChange(
+                    "intervalHours",
+                    text.replace(/[^0-9]/g, "")
+                  )
+                }
+                keyboardType="numeric"
+              />
+
+              <Text style={styles.checkboxText}>hrs starting at</Text>
+
+              <TouchableOpacity
+                onPress={() => setShowTimePicker(true)} // Show Time Picker on click
+                style={[styles.underlinedInput, { width: 90, marginLeft: 5 }]}
+              >
+                <Text style={styles.timeText}>
+                  {startTime.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </Text>
               </TouchableOpacity>
-            )
+            </View>
+          </TouchableOpacity>
+
+          {/* Time Picker for Start Time */}
+          {showTimePicker && (
+            <DateTimePicker
+              value={startTime}
+              mode="time"
+              is24Hour={false}
+              display="spinner"
+              onChange={(event, selectedTime) => {
+                setShowTimePicker(false);
+                if (selectedTime)
+                  handleScheduleChange("startTime", selectedTime.toString());
+              }}
+              style={{
+                marginTop: 10,
+                backgroundColor: "#fff",
+              }}
+              themeVariant="light"
+            />
+          )}
+
+          <View style={{ padding: 10 }}>
+            <TouchableOpacity
+              onPress={() => handleScheduleChange("isEveryHours", "false")}
+            >
+              <Text style={styles.checkboxText}>
+                {isEveryHours ? "○ " : "◉ "} Custom
+              </Text>
+            </TouchableOpacity>
+
+            {!isEveryHours && (
+              <View>
+                <TouchableOpacity
+                  style={styles.addTimeButton}
+                  onPress={handleAddCustomTime}
+                >
+                  <Text style={styles.plusText}>+ Add Custom Time</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Validation Message */}
+        {scheduleFormData.timeSlots.length >=
+          parseInt(medicationFormData.initialQty, 10) && (
+          <Text style={{ color: "red", marginTop: 5 }}>
+            Time slots cannot exceed the number of times per day.
+          </Text>
+        )}
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Reminder Type</Text>
+          <DropDownPicker
+            open={dropdownOpen}
+            value={medicationFormData.notificationType}
+            items={[
+              { label: "Email", value: "email" },
+              { label: "Phone", value: "phone" },
+              { label: "Mobile Notification", value: "mobile" },
+            ]}
+            setOpen={(open) =>
+              handleScheduleChange("dropdownOpen", open.toString())
+            }
+            setValue={(value) =>
+              handleMedicationChange("notificationType", value.toString())
+            }
+            setItems={() => {}}
+            containerStyle={styles.dropdownContainer}
+            style={styles.dropdown}
+            dropDownContainerStyle={styles.dropdownList}
+            textStyle={styles.dropdownText}
+          />
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Reminder Options</Text>
+          <View>
+            {["10 minutes before", "5 minutes before", "Exact time"].map(
+              (option) => (
+                <TouchableOpacity
+                  key={option}
+                  style={styles.checkboxContainer}
+                  onPress={() => handleCheckboxChange(option)}
+                >
+                  <Checkbox
+                    style={styles.checkbox}
+                    value={medicationFormData.notifDetails.includes(option)}
+                    onValueChange={() => handleCheckboxChange(option)}
+                  />
+                  <Text style={styles.checkboxText}>{option}</Text>
+                </TouchableOpacity>
+              )
+            )}
+          </View>
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Doctor Instructions</Text>
+          <TouchableOpacity
+            style={styles.attachmentGroup}
+            onPress={handleAttachRecording}
+          >
+            <Text style={styles.attachmentText}>
+              {medicationFormData.files
+                ? "Replace Recording"
+                : "Attach Recording"}
+            </Text>
+          </TouchableOpacity>
+          {medicationFormData.files && (
+            <Text style={styles.attachmentText}>
+              Attached: {medicationFormData.attachments}
+            </Text>
           )}
         </View>
-      </View>
 
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Doctor Instructions</Text>
-        <TouchableOpacity
-          style={styles.attachmentGroup}
-          onPress={handleAttachRecording}
-        >
-          <Text style={styles.attachmentText}>
-            {attachment ? "Replace Recording" : "Attach Recording"}
-          </Text>
-        </TouchableOpacity>
-        {attachment && (
-          <Text style={styles.attachmentText}>Attached: {attachment.name}</Text>
-        )}
-      </View>
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={handleAddMedication}
-        >
-          <Text style={styles.buttonText}>
-            {editingId ? "Update Medication" : "Add Medication"}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.clearButton} onPress={clearForm}>
-          <Text style={styles.buttonText}>Clear Form</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={styles.addButton}
+            // onPress={handleAddMedication}
+          >
+            <Text style={styles.buttonText}>
+              {editingId ? "Update Medication" : "Add Medication"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.clearButton} onPress={clearForm}>
+            <Text style={styles.buttonText}>Clear Form</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
 
       <Text style={styles.heading}>Medications</Text>
       {medications.length > 0 ? (
         <FlatList
           data={medications}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.medId?.toString() ?? ""}
           renderItem={({ item }) => (
             <View style={styles.medicationItem}>
               <View style={styles.medicationDetails}>
                 <Text style={styles.medicationText}>
-                  {item.name} - {item.dose}, {item.numTablets} tablet(s)
+                  {item.name} - {item.dose}, {item.currentQty} tablet(s)
                 </Text>
-                <Text style={styles.timeSlotsText}>
-                  Time Slots: {item.time}
-                </Text>
+                <Text style={styles.timeSlotsText}>\ </Text>
               </View>
               <View style={styles.actionButtons}>
                 <TouchableOpacity
                   style={[styles.actionButton, styles.editButton]}
-                  onPress={() => handleEditMedication(item.id)}
+                  onPress={() => handleEditMedication(item.medId ?? 0)}
                 >
                   <Text style={styles.actionButtonText}>Edit</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.actionButton, styles.deleteButton]}
-                  onPress={() => handleDeleteMedication(item.id)}
+                  onPress={() => handleDeleteMedication(item.medId ?? 0)}
                 >
                   <Text style={styles.actionButtonText}>Delete</Text>
                 </TouchableOpacity>
@@ -584,7 +612,57 @@ export default function MedicationTab() {
       ) : (
         <Text style={styles.noDataText}>No medications added yet.</Text>
       )}
-    </ScrollView>
+
+      <Modal
+        visible={isModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleCloseModal}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add Custom Time</Text>
+            {scheduleFormData.timeSlots.map((slot, index) => (
+              <View key={index} style={{ marginBottom: 10, marginTop: 10 }}>
+                <TextInput
+                  style={[styles.input, { padding: 13 }]}
+                  placeholder="Custom Time"
+                  placeholderTextColor="#5A5A5A"
+                  value={slot}
+                  onChangeText={(text) => {
+                    const newSlots = [...scheduleFormData.timeSlots];
+                    newSlots[index] = text;
+                    setScheduleFormData((prev) => ({
+                      ...prev,
+                      timeSlots: newSlots,
+                    }));
+                  }}
+                />
+              </View>
+            ))}
+            <TouchableOpacity
+              style={styles.addTimeButton}
+              onPress={() =>
+                setScheduleFormData((prev) => ({
+                  ...prev,
+                  timeSlots: [...prev.timeSlots, ""],
+                }))
+              }
+            >
+              <Text style={styles.plusText}>+ Add Custom Time</Text>
+            </TouchableOpacity>
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={handleCloseModal}
+              >
+                <Text style={styles.modalButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
@@ -592,8 +670,20 @@ const { width } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
+    flex: 1,
     backgroundColor: "#fff",
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  scrollViewContent: {
+    padding: 16,
     paddingBottom: 80,
   },
   heading: {
@@ -634,6 +724,7 @@ const styles = StyleSheet.create({
   addTimeButton: {
     backgroundColor: "#0066CC",
     padding: 10,
+    marginTop: 10,
     borderRadius: 5,
   },
   plusText: {
@@ -755,7 +846,7 @@ const styles = StyleSheet.create({
     marginLeft: 15,
   },
   checkboxText: {
-    fontSize: 18,
+    fontSize: 15,
     color: "#333",
     fontWeight: 500,
   },
@@ -764,17 +855,64 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   dropdown: {
-    backgroundColor: '#FFF',
+    backgroundColor: "#FFF",
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     borderRadius: 5,
   },
   dropdownList: {
-    backgroundColor: '#FFF',
-    borderColor: '#ccc',
+    backgroundColor: "#FFF",
+    borderColor: "#ccc",
   },
   dropdownText: {
-    fontSize: width * 0.04, 
+    fontSize: width * 0.04,
+  },
+  borderedBox: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    padding: 5,
+    marginBottom: 15,
+  },
+  underlinedInput: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#ccc",
+    padding: 10,
+    fontSize: width * 0.04,
+    marginHorizontal: 5,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    width: "80%",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 20,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  modalButtonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 20,
+  },
+  modalButton: {
+    backgroundColor: "#007bff",
+    padding: 10,
+    borderRadius: 5,
+    marginHorizontal: 5,
+  },
+  modalButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
   },
 });
 
