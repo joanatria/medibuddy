@@ -13,7 +13,6 @@ import {
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as DocumentPicker from "expo-document-picker";
-import { Calendar } from "react-native-calendars";
 import DropDownPicker from 'react-native-dropdown-picker';
 
 interface Medication {
@@ -30,7 +29,7 @@ interface Medication {
   attachment?: Attachment;
   notificationType: string;
   notificationDetails: string[];
-  days: string[];
+  days: string;
 }
 interface Attachment {
   uri: string;
@@ -55,9 +54,12 @@ export default function MedicationTab() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [notificationDetails, setNotificationDetails] = useState<string[]>([]);
-  const [days, setDays] = useState<string[]>([]);
+  const [days, setDays] = useState("");
   const [dayOption, setDayOption] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false); 
+  const [isEveryHours, setIsEveryHours] = useState(false);
+  const [startTime, setStartTime] = useState(new Date());
+  const [intervalHours, setIntervalHours] = useState("");
   
 
   const handleCheckboxChange = (value: string) => {
@@ -240,7 +242,7 @@ export default function MedicationTab() {
     setAttachment(null);
     setNotificationType("");
     setNotificationDetails([]);
-    setDays([]);
+    setDays("");
     setEditingId(null);
     setShowTimePicker(false);
     setShowCalendar(false);
@@ -331,115 +333,175 @@ export default function MedicationTab() {
         </View>
 
         {/* "per take" text */}
-        <View style={[styles.formGroup, { flex: 1.3 , justifyContent: "center", marginLeft: 10, marginTop: 30 }]}>
-          <Text style={[{ marginBottom: 0, fontSize: 20, fontWeight: 500 }]}>per take</Text>
+        <View style={[styles.formGroup, { flex: 1.3 , justifyContent: "center", marginLeft: 10, marginTop: 55 }]}>
+          <Text style={[{ marginBottom: 0, fontSize: 18, fontWeight: 500 }]}>per take</Text>
         </View>
       </View>
 
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Instructions</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter instructions"
-          placeholderTextColor="#5A5A5A"
-          value={instructions}
-          onChangeText={setInstructions}
-        />
+      <View style={styles.timeInputContainer}>
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={[styles.label, { marginBottom: 7 }]}>Instructions</Text>
+          <TextInput
+            style={[styles.input, { padding: 13 }]}
+            placeholder="e.g., 30"
+            placeholderTextColor="#5A5A5A"
+            value={instructions}
+            onChangeText={(text) => setInstructions(text.replace(/[^0-9]/g, ""))}
+            keyboardType="numeric"
+          />
+        </View>
+
+        <View style={[styles.formGroup, { flex: 1.2 , justifyContent: "center", marginLeft: 10, marginTop: 55 }]}>
+          <Text style={[{ marginBottom: 0, fontSize: 18, fontWeight: 500 }]}>times a day for</Text>
+        </View>
+
+        <View style={{ flex: 0.4 , marginTop: 18}}>
+          <TextInput
+            style={[styles.input, { padding: 13 }]}
+            placeholder="0"
+            placeholderTextColor="#5A5A5A"
+            value={days}  
+            onChangeText={(text) => setDays(text.replace(/[^0-9]/g, ""))}
+            keyboardType="numeric"
+          />
+        </View>
+
+        <View style={[styles.formGroup, { flex: 0.5 , justifyContent: "center", marginLeft: 10, marginTop: 55 }]}>
+          <Text style={[{ marginBottom: 0, fontSize: 18, fontWeight: 500 }]}>days</Text>
+        </View>
       </View>
 
+      {/* Day Option Selection */}
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Attachment</Text>
-        <TouchableOpacity
-          style={styles.attachmentGroup}
-          onPress={handleAttachRecording}
-        >
-          <Text style={styles.attachmentText}>
-            {attachment ? "Replace Recording" : "Attach Recording"}
-          </Text>
-        </TouchableOpacity>
-        {attachment && (
-          <Text style={styles.attachmentText}>Attached: {attachment.name}</Text>
-        )}
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Time Slots</Text>
-        <View style={styles.timeInputContainer}>
-          {/* Time Picker Button */}
+        {["Daily", "Every other day"].map((option) => (
           <TouchableOpacity
-            onPress={() => setShowTimePicker(true)}
-            style={[styles.input, styles.timeInput]}
+            key={option}
+            style={styles.checkboxContainer}
+            onPress={() => setDayOption(option)}
           >
-            <Text style={styles.timeText}>
-              {time.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+            <Text style={styles.checkboxText}>
+              {dayOption === option ? "✓ " : "○ "}
+              {option}
             </Text>
           </TouchableOpacity>
-
-          {/* Time Picker Modal */}
-          {showTimePicker && (
-            <DateTimePicker
-              value={time}
-              mode="time"
-              is24Hour={false}
-              display="spinner"
-              onChange={(event, selectedTime) => {
-                setShowTimePicker(false);
-                if (selectedTime) setTime(selectedTime);
-              }}
-            />
-          )}
-
-          {/* Add Time Slot Button */}
-          <TouchableOpacity
-            style={[
-              styles.addTimeButton,
-              timeSlots.length < parseInt(numTablets, 10)
-                ? {}
-                : { backgroundColor: "#ccc" },
-            ]}
-            onPress={handleAddTimeSlot}
-            disabled={timeSlots.length >= parseInt(numTablets, 10)}
-          >
-            <Text style={styles.plusText}>+</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Validation Message */}
-        {timeSlots.length >= parseInt(numTablets, 10) && (
-          <Text style={{ color: "red", marginTop: 5 }}>
-            Time slots cannot exceed the number of tablets.
-          </Text>
-        )}
-
-        {/* Render Time Slots */}
-        <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
-          {timeSlots.map((item, index) => (
-            <View key={`${item}-${index}`} style={styles.timeSlotItem}>
-              <Text style={styles.timeSlotText}>{item}</Text>
-              <TouchableOpacity onPress={() => handleRemoveTimeSlot(index)}>
-                <Text style={styles.removeTimeSlotText}>x</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-        </ScrollView>
+        ))}
       </View>
 
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Notification Type</Text>
+    {/* Time Slot Selection */}
+    <View style={styles.formGroup}>
+      <Text style={styles.label}>Time Slot Selection</Text>
+
+      {/* "Every ___ hrs starting __:___" option */}
+      <TouchableOpacity onPress={() => setIsEveryHours(true)}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}> 
+        <Text style={styles.checkboxText}>
+          {isEveryHours ? "✓ " : "○ "}Every
+        </Text>
+
         <TextInput
-          style={styles.input}
-          placeholder="Notification Type"
-          placeholderTextColor="#5A5A5A"
+          style={[styles.input, { width: 50, marginLeft: 5 }]}
+          placeholder="hrs"
+          value={intervalHours}
+          onChangeText={(text) => setIntervalHours(text.replace(/[^0-9]/g, ""))}
+          keyboardType="numeric"
+        />
+
+        <Text style={styles.checkboxText}>hrs starting</Text>
+
+        <TouchableOpacity
+          onPress={() => setShowTimePicker(true)} // Show Time Picker on click
+          style={[styles.input, { width: 90, marginLeft: 5, padding: 10 }]}
+        >
+          <Text style={styles.timeText}>
+            {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </Text>
+        </TouchableOpacity>
+      </View>
+   </TouchableOpacity>
+
+    {/* Time Picker for Start Time */}
+    {showTimePicker && (
+      <DateTimePicker
+        value={startTime}
+        mode="time"
+        is24Hour={false}
+        display="spinner"
+        onChange={(event, selectedTime) => {
+          setShowTimePicker(false); 
+          if (selectedTime) setStartTime(selectedTime);
+        }}
+        style={{
+          marginTop: 10,
+          backgroundColor: '#fff', 
+        }} 
+        themeVariant="light" 
+      />
+    )}
+
+  <View style={styles.formGroup}>
+    <TouchableOpacity onPress={() => setIsEveryHours(false)}>
+      <Text style={styles.checkboxText}>
+        {isEveryHours ? "○ " : "✓ "}Custom
+      </Text>
+    </TouchableOpacity>
+
+    {!isEveryHours && (
+      <View>
+        {timeSlots.map((slot, index) => (
+          <View key={index} style={{ marginBottom: 10 }}>
+            <TextInput
+              style={[styles.input, { padding: 13 }]}
+              placeholder="Custom Time"
+              placeholderTextColor="#5A5A5A"
+              value={slot}
+              onChangeText={(text) => {
+                const newSlots = [...timeSlots];
+                newSlots[index] = text;
+                setTimeSlots(newSlots);
+              }}
+            />
+          </View>
+        ))}
+        <TouchableOpacity
+          style={styles.addTimeButton}
+          onPress={() => setTimeSlots([...timeSlots, ""])}
+        >
+          <Text style={styles.plusText}>+ Add Custom Time</Text>
+        </TouchableOpacity>
+      </View>
+    )}
+  </View>
+    </View>
+
+  {/* Validation Message */}
+    {timeSlots.length >= parseInt(numTablets, 10) && (
+      <Text style={{ color: "red", marginTop: 5 }}>
+        Time slots cannot exceed the number of tablets.
+      </Text>
+    )}
+
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Reminder Type</Text>
+        <DropDownPicker
+          open={dropdownOpen}
           value={notificationType}
-          onChangeText={setNotificationType}
+          items={[
+            { label: 'Email', value: 'email' },
+            { label: 'Phone', value: 'phone' },
+            { label: 'Mobile Notification', value: 'mobile' },
+          ]}
+          setOpen={setDropdownOpen}  
+          setValue={setNotificationType}  
+          setItems={() => {}}
+          containerStyle={styles.dropdownContainer}
+          style={styles.dropdown}
+          dropDownContainerStyle={styles.dropdownList}
+          textStyle={styles.dropdownText}  
         />
       </View>
 
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Notification Details</Text>
+        <Text style={styles.label}>Reminder Options</Text>
         <View>
           {["10 minutes before", "5 minutes before", "Exact time"].map(
             (option) => (
@@ -458,42 +520,19 @@ export default function MedicationTab() {
         </View>
       </View>
 
-      {/* Calendar for Day Selection */}
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Select Days</Text>
-        <Calendar
-          onDayPress={(day: { dateString: string }) =>
-            handleDaySelect(day.dateString)
-          }
-          markedDates={days.reduce(
-            (acc: { [key: string]: { selected: boolean } }, curr) => {
-              acc[curr] = { selected: true };
-              return acc;
-            },
-            {}
-          )}
-          theme={{
-            selectedDayBackgroundColor: "#00adf5",
-            selectedDayTextColor: "#ffffff",
-          }}
-        />
-      </View>
-
-      {/* Day Option Selection */}
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Day Option</Text>
-        {["Daily", "Every other day", "Custom"].map((option) => (
-          <TouchableOpacity
-            key={option}
-            style={styles.checkboxContainer}
-            onPress={() => setDayOption(option)}
-          >
-            <Text style={styles.checkboxText}>
-              {dayOption === option ? "✓ " : "○ "}
-              {option}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        <Text style={styles.label}>Doctor Instructions</Text>
+        <TouchableOpacity
+          style={styles.attachmentGroup}
+          onPress={handleAttachRecording}
+        >
+          <Text style={styles.attachmentText}>
+            {attachment ? "Replace Recording" : "Attach Recording"}
+          </Text>
+        </TouchableOpacity>
+        {attachment && (
+          <Text style={styles.attachmentText}>Attached: {attachment.name}</Text>
+        )}
       </View>
 
       <View style={styles.buttonContainer}>
@@ -713,10 +752,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 8,
+    marginLeft: 15,
   },
   checkboxText: {
-    fontSize: 16,
+    fontSize: 18,
     color: "#333",
+    fontWeight: 500,
   },
   dropdownContainer: {
     height: 39,
