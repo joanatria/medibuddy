@@ -1,19 +1,27 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Dimensions } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Dimensions,
+} from "react-native";
+import { useRouter } from "expo-router";
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
   const handleLogin = () => {
     if (username && password) {
       // Mock authentication
-      Alert.alert('Login Successful', `Welcome, ${username}!`);
-      router.replace("(tabs)"); // Navigate to the home screen
+      Alert.alert("Login Successful", `Welcome, ${username}!`);
+      router.replace("/(tabs)"); // Navigate to the home screen
     } else {
-      Alert.alert('Error', 'Please enter both username and password.');
+      Alert.alert("Error", "Please enter both username and password.");
     }
   };
 
@@ -43,63 +51,62 @@ export default function LoginScreen() {
       </TouchableOpacity>
 
       <Text style={styles.footerText}>
-        Don't have an account?{' '}
-        <Text style={styles.link} onPress={() => router.push('/registration')}>
+        Don't have an account?{" "}
+        <Text style={styles.link} onPress={() => router.push("/registration")}>
           Register
         </Text>
       </Text>
-
     </View>
   );
 }
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
   },
   heading: {
     fontSize: width * 0.06,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 24,
-    textAlign: 'center',
+    textAlign: "center",
   },
   input: {
-    width: '90%',
+    width: "90%",
     padding: 12,
     marginVertical: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 8,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
     fontSize: width * 0.045,
-    color: '#333',
+    color: "#333",
   },
   loginButton: {
-    width: '90%',
+    width: "90%",
     paddingVertical: 12,
-    backgroundColor: '#007bff',
+    backgroundColor: "#007bff",
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 16,
   },
   loginButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: width * 0.045,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   footerText: {
     marginTop: 16,
     fontSize: width * 0.04,
-    color: '#666',
+    color: "#666",
   },
   link: {
-    color: '#007bff',
-    fontWeight: 'bold',
+    color: "#007bff",
+    fontWeight: "bold",
   },
 });
