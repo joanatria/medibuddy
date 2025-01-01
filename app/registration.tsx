@@ -12,6 +12,7 @@ import {
 import { useRouter } from "expo-router";
 import { UserSchema, userSchema } from "@/validation/user";
 import { z } from "zod";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const RegisterScreen = () => {
   const router = useRouter();
@@ -26,6 +27,16 @@ const RegisterScreen = () => {
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+
+  useEffect(() => {
+    const checkUserId = async () => {
+      const userId = await AsyncStorage.getItem("userId");
+      if (userId) {
+        router.push("/(tabs)");
+      }
+    };
+    checkUserId();
+  }, []);
 
   const handleInputChange = (key: string, value: string) => {
     setFormData({ ...formData, [key]: value });

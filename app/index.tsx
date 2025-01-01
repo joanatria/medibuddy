@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,21 @@ export default function LoginScreen() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+
+  useEffect(() => {
+    const checkUserId = async () => {
+      try {
+        const userId = await AsyncStorage.getItem("my-key");
+        if (userId) {
+          router.replace("/(tabs)");
+        }
+      } catch (e) {
+        console.error("Failed to fetch user ID from storage", e);
+      }
+    };
+
+    checkUserId();
+  }, []);
 
   const handleLogin = async () => {
     if (username && password) {
