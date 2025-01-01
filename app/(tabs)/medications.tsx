@@ -295,18 +295,6 @@ export default function MedicationTab() {
       </View>
 
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Required Number of Tablets</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g., 14"
-          placeholderTextColor="#5A5A5A"
-          value={numTablets}
-          onChangeText={(text) => setNumTablets(text.replace(/[^0-9]/g, ""))}
-          keyboardType="numeric"
-        />
-      </View>
-
-      <View style={styles.formGroup}>
         <Text style={styles.label}>Initial Number of Tablets</Text>
         <TextInput
           style={styles.input}
@@ -314,18 +302,6 @@ export default function MedicationTab() {
           placeholderTextColor="#5A5A5A"
           value={intTablets}
           onChangeText={(text) => setIntTablets(text.replace(/[^0-9]/g, ""))}
-          keyboardType="numeric"
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Current Number of Tablets</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g., 15"
-          placeholderTextColor="#5A5A5A"
-          value={currTablets}
-          onChangeText={(text) => setCurrTablets(text.replace(/[^0-9]/g, ""))}
           keyboardType="numeric"
         />
       </View>
