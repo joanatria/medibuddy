@@ -8,8 +8,8 @@ import {
   FlatList,
   Alert,
   Dimensions,
-  ScrollView,
 } from 'react-native';
+import DropDownPicker from 'react-native-dropdown-picker';
 
 interface Caregiver {
   id: string;
@@ -18,7 +18,13 @@ interface Caregiver {
   email: string;
   contact: string;
   relationship: string;
+  notificationType: string;
 }
+
+type DropdownItem = {
+  label: string;
+  value: string;
+};
 
 export default function CaregiverTab() {
   const [caregiverFirstName, setCaregiverFirstName] = useState('');
@@ -26,8 +32,10 @@ export default function CaregiverTab() {
   const [caregiverEmail, setCaregiverEmail] = useState('');
   const [contact, setContact] = useState('');
   const [relationship, setRelationship] = useState('');
+  const [notificationType, setNotificationType] = useState('email'); // Default to email
   const [caregivers, setCaregivers] = useState<Caregiver[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false); 
 
   const handleAddCaregiver = () => {
     if (!caregiverFirstName.trim()) {
@@ -54,6 +62,7 @@ export default function CaregiverTab() {
       email: caregiverEmail,
       contact: contact.trim(),
       relationship: relationship.trim(),
+      notificationType,
     };
 
     setCaregivers((prev) =>
@@ -78,6 +87,7 @@ export default function CaregiverTab() {
       setCaregiverLastName(caregiver.lastname);
       setContact(caregiver.contact);
       setRelationship(caregiver.relationship);
+      setNotificationType(caregiver.notificationType);
       setEditingId(caregiver.id);
     }
   };
@@ -88,10 +98,11 @@ export default function CaregiverTab() {
     setContact('');
     setRelationship('');
     setEditingId(null);
+    setNotificationType('email');
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <View style={styles.container}>
       <Text style={styles.heading}>{editingId ? 'Edit Caregiver' : 'Add Caregiver'}</Text>
 
       <View style={styles.formGroup}>
@@ -150,12 +161,33 @@ export default function CaregiverTab() {
         />
       </View>
 
+      {/* Dropdown for Notification Type */}
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Notification Method</Text>
+        <DropDownPicker
+          open={dropdownOpen}
+          value={notificationType}
+          items={[
+            { label: 'Email', value: 'email' },
+            { label: 'Phone', value: 'phone' },
+            { label: 'Mobile Notification', value: 'mobile' },
+          ]}
+          setOpen={setDropdownOpen}  // Make sure the dropdown toggle is controlled
+          setValue={setNotificationType}  // Set the selected value
+          setItems={() => {}}
+          containerStyle={styles.dropdownContainer}
+          style={styles.dropdown}
+          dropDownContainerStyle={styles.dropdownList}
+          textStyle={styles.dropdownText}  // Added styling for dropdown text
+        />
+      </View>
+
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={styles.addButton} onPress={handleAddCaregiver}>
-          <Text style={styles.buttonText}>{editingId ? 'Update' : 'Add'}</Text>
+          <Text style={styles.buttonText}>{editingId ? 'Update Caregiver' : 'Add Caregiver'}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.clearButton} onPress={clearForm}>
-          <Text style={styles.buttonText}>Clear</Text>
+          <Text style={styles.buttonText}>Clear Form</Text>
         </TouchableOpacity>
       </View>
 
@@ -172,6 +204,7 @@ export default function CaregiverTab() {
                 <Text style={styles.caregiverText}>{item.email}</Text>
                 <Text style={styles.caregiverText}>Contact: {item.contact}</Text>
                 <Text style={styles.caregiverText}>Relationship: {item.relationship}</Text>
+                <Text style={styles.caregiverText}>Notification: {item.notificationType}</Text>
               </View>
               <View style={styles.actionButtons}>
                 <TouchableOpacity
@@ -193,7 +226,7 @@ export default function CaregiverTab() {
       ) : (
         <Text style={styles.noDataText}>No caregivers added yet.</Text>
       )}
-    </ScrollView>
+    </View>
   );
 }
 
@@ -225,9 +258,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 5,
-    padding: 10,
+    padding: 15,
     backgroundColor: '#FFF',
     fontSize: width * 0.04,
+  },
+  dropdownContainer: {
+    height: 40,
+    marginBottom: 10,
+  },
+  dropdown: {
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    padding: 10,
+    fontSize: width * 0.04,
+  },
+  dropdownList: {
+    backgroundColor: '#FFF',
+    borderColor: '#ccc',
+  },
+  dropdownText: {
+    fontSize: width * 0.04, 
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -256,37 +308,41 @@ const styles = StyleSheet.create({
   caregiverItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#FFF',
+    backgroundColor: '#f8f9fa',
+    padding: 15,
     borderRadius: 8,
     marginBottom: 10,
   },
   caregiverText: {
-    fontWeight: 'bold',
     fontSize: width * 0.04,
   },
   actionButtons: {
-    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginLeft: 10,
   },
   actionButton: {
-    padding: 8,
+    padding: 10,
     borderRadius: 5,
-    marginHorizontal: 5,
+    marginVertical: 5,
+    width: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   editButton: {
-    backgroundColor: '#007bff',
+    backgroundColor: '#ffc107',
   },
   deleteButton: {
     backgroundColor: '#dc3545',
   },
   actionButtonText: {
-    color: '#FFF',
+    color: '#fff',
     fontWeight: 'bold',
+    fontSize: width * 0.03,
   },
   noDataText: {
     textAlign: 'center',
-    color: '#666',
-    marginVertical: 20,
+    fontSize: width * 0.04,
+    color: '#777',
   },
 });

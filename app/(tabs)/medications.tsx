@@ -14,6 +14,7 @@ import {
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as DocumentPicker from "expo-document-picker";
 import { Calendar } from "react-native-calendars";
+import DropDownPicker from 'react-native-dropdown-picker';
 
 interface Medication {
   id: string;
@@ -56,6 +57,8 @@ export default function MedicationTab() {
   const [notificationDetails, setNotificationDetails] = useState<string[]>([]);
   const [days, setDays] = useState<string[]>([]);
   const [dayOption, setDayOption] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false); 
+  
 
   const handleCheckboxChange = (value: string) => {
     if (notificationDetails.includes(value)) {
@@ -271,6 +274,68 @@ export default function MedicationTab() {
         />
       </View>
 
+      <View style={styles.timeInputContainer}>
+      <View style={[styles.formGroup, { flex: 1 }]}>
+        <Text style={[styles.label, { marginBottom: 7 }]}>Quantity Bought</Text>
+        <TextInput
+          style={[styles.input, { padding: 13 }]}
+          placeholder="e.g., 30"
+          placeholderTextColor="#5A5A5A"
+          value={intTablets}  
+          onChangeText={(text) => setIntTablets(text.replace(/[^0-9]/g, ""))}
+          keyboardType="numeric"
+        />
+      </View>
+
+      <View style={[styles.formGroup, { flex: 1, marginLeft: 10 }]}>
+        <Text style={styles.label}>Unit</Text>
+        <DropDownPicker
+          open={dropdownOpen}
+          value={unit}
+          items={[
+            { label: 'mL', value: 'mL' },
+            { label: 'pieces', value: 'pieces' },
+          ]}
+          setOpen={setDropdownOpen} 
+          setValue={setUnit} 
+          setItems={() => {}}
+          containerStyle={styles.dropdownContainer}
+          style={styles.dropdown}
+          dropDownContainerStyle={styles.dropdownList}
+          textStyle={styles.dropdownText} 
+        />
+      </View>
+      </View>
+
+      <View style={styles.timeInputContainer}>
+        {/* Dosage Input */}
+        <View style={[styles.formGroup, { flex: 1 }]}>
+          <Text style={[styles.label, { marginBottom: 7 }]}>Dosage</Text>
+          <TextInput
+            style={[styles.input, { padding: 13 }]}
+            placeholder="e.g., 30"
+            placeholderTextColor="#5A5A5A"
+            value={intTablets}
+            onChangeText={(text) => setIntTablets(text.replace(/[^0-9]/g, ""))}
+            keyboardType="numeric"
+          />
+        </View>
+
+        {/* Unit (readonly input) */}
+        <View style={{ flex: 0.7 , marginLeft: 10, borderBottomWidth: 1, borderColor: '#ccc', marginTop: 18, width: 50 }}>
+          <TextInput
+            style={[styles.input, { padding: 10, borderColor: '#fff' }]}
+            value={unit} 
+            editable={false} 
+          />
+        </View>
+
+        {/* "per take" text */}
+        <View style={[styles.formGroup, { flex: 1.3 , justifyContent: "center", marginLeft: 10, marginTop: 30 }]}>
+          <Text style={[{ marginBottom: 0, fontSize: 20, fontWeight: 500 }]}>per take</Text>
+        </View>
+      </View>
+
       <View style={styles.formGroup}>
         <Text style={styles.label}>Instructions</Text>
         <TextInput
@@ -279,41 +344,6 @@ export default function MedicationTab() {
           placeholderTextColor="#5A5A5A"
           value={instructions}
           onChangeText={setInstructions}
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Dose</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g., 1"
-          placeholderTextColor="#5A5A5A"
-          value={dose}
-          onChangeText={(text) => setDose(text.replace(/[^0-9]/g, ""))}
-          keyboardType="numeric"
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Initial Number of Tablets</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g., 30"
-          placeholderTextColor="#5A5A5A"
-          value={intTablets}
-          onChangeText={(text) => setIntTablets(text.replace(/[^0-9]/g, ""))}
-          keyboardType="numeric"
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Unit</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g mL"
-          placeholderTextColor="#5A5A5A"
-          value={unit}
-          onChangeText={setUnit}
         />
       </View>
 
@@ -687,6 +717,23 @@ const styles = StyleSheet.create({
   checkboxText: {
     fontSize: 16,
     color: "#333",
+  },
+  dropdownContainer: {
+    height: 39,
+    marginBottom: 10,
+  },
+  dropdown: {
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+  },
+  dropdownList: {
+    backgroundColor: '#FFF',
+    borderColor: '#ccc',
+  },
+  dropdownText: {
+    fontSize: width * 0.04, 
   },
 });
 
