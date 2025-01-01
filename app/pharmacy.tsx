@@ -8,22 +8,24 @@ import {
   FlatList,
   Alert,
   Dimensions,
+  Modal,
+  Pressable,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { PharmacySchema } from "@/validation/pharmacy";
 import { PharmMedSchema } from "@/validation/pharmmed";
 import { Ionicons } from "@expo/vector-icons";
-import { set } from "zod";
 
 export default function PharmacyPage({ navigation }: any) {
   const router = useRouter();
   const [searchText, setSearchText] = useState("");
   const [searchResults, setSearchResults] = useState<PharmMedSchema[]>([]);
   const [medicines, setMedicines] = useState<PharmMedSchema[]>([]);
-  const [selectedMedicine, setSelectedMedicine] =
-    useState<PharmMedSchema | null>(null);
+  const [selectedMedicine, setSelectedMedicine] = useState<PharmMedSchema | null>(null);
   const [pillsNeeded, setPillsNeeded] = useState<number | null>(null);
   const [pharmacies, setPharmacies] = useState<PharmacySchema[]>([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedPharmacy, setSelectedPharmacy] = useState<PharmacySchema | null>(null);
 
   const fetchPharmacies = async () => {
     try {
@@ -52,6 +54,7 @@ export default function PharmacyPage({ navigation }: any) {
     fetchPharmacies();
     fetchMedicines();
   }, []);
+
   const handleSearch = (text: string) => {
     if (searchText.trim() === "") {
       setSearchResults(medicines);
@@ -113,6 +116,7 @@ export default function PharmacyPage({ navigation }: any) {
     ) => {
       const pharmacy = pharmacies.find((ph) => ph.pharmId === medicine.pharmId);
       if (pharmacy) {
+        // Ensure that medicines are added to the pharmacy object in the accumulator
         if (!acc[pharmacy.pharmId]) {
           acc[pharmacy.pharmId] = {
             pharmacy,
@@ -126,17 +130,32 @@ export default function PharmacyPage({ navigation }: any) {
     {}
   );
 
+  const [selectedPharmacyMedicines, setSelectedPharmacyMedicines] = useState<PharmMedSchema[]>([]);
+
+  const openModal = (pharmacy: PharmacySchema) => {
+    setSelectedPharmacy(pharmacy);
+    const pharmacyMedicines = searchResults.filter(
+      (medicine) => medicine.pharmId === pharmacy.pharmId
+    );
+    setSelectedPharmacyMedicines(pharmacyMedicines);
+    setModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setSelectedPharmacy(null);
+  };
+
   return (
     <View style={styles.container}>
       <TouchableOpacity
         style={styles.backButton}
         onPress={() => router.push("/(tabs)/explore")}
       >
-        <Text style={styles.backButtonText}>← Back</Text>
+        <Text style={styles.backButtonText}>← </Text>
       </TouchableOpacity>
 
-      <Text style={styles.heading}>Pharmacy Refill</Text>
-      <Text style={styles.sectionTitle}>Pharmacies</Text>
+      <Text style={styles.heading}>Pharmacy</Text>
       <View style={styles.searchContainer}>
         <Ionicons
           name="search"
@@ -167,7 +186,7 @@ export default function PharmacyPage({ navigation }: any) {
               <Text style={styles.pharmacyText}>
                 Address: {item.pharmacy.address}
               </Text>
-              {item.medicines.map((medicine) => (
+              {item.medicines.slice(0, 2).map((medicine) => (
                 <TouchableOpacity
                   key={medicine.pmedId}
                   style={styles.medicineItem}
@@ -179,6 +198,14 @@ export default function PharmacyPage({ navigation }: any) {
                   </Text>
                 </TouchableOpacity>
               ))}
+              {item.medicines.length > 2 && (
+                <TouchableOpacity
+                  style={styles.seeAllButton}
+                  onPress={() => openModal(item.pharmacy)}
+                >
+                  <Text style={styles.seeAllText}>See All</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         />
@@ -188,28 +215,32 @@ export default function PharmacyPage({ navigation }: any) {
         </Text>
       )}
 
-      {selectedMedicine && (
-        <>
-          <Text style={styles.sectionTitle}>Refill Selected Medicine</Text>
-          <Text style={styles.medicineText}>
-            Medicine: {selectedMedicine.name}
-          </Text>
-          <Text style={styles.medicineText}>
-            Available Quantity: {selectedMedicine.qty}
-          </Text>
-          <TextInput
-            style={styles.input}
-            keyboardType="numeric"
-            placeholder="Enter number of pills needed"
-            placeholderTextColor="#5A5A5A"
-            value={pillsNeeded?.toString() || ""}
-            onChangeText={(text) => setPillsNeeded(Number(text))}
-          />
-          <TouchableOpacity style={styles.refillButton} onPress={handleRefill}>
-            <Text style={styles.buttonText}>Refill</Text>
-          </TouchableOpacity>
-        </>
-      )}
+      {/* Modal to show all medicines in a pharmacy */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={closeModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Medicines at {selectedPharmacy?.name}</Text>
+            <FlatList
+              data={selectedPharmacyMedicines}
+              keyExtractor={(medicine) => medicine.pmedId?.toString() || ''}
+              renderItem={({ item }) => (
+                <View style={styles.medicineItem}>
+                  <Text style={styles.medicineText}>Name: {item.name}</Text>
+                  <Text style={styles.medicineText}>Quantity: {item.qty}</Text>
+                </View>
+              )}
+            />
+            <Pressable onPress={closeModal} style={styles.closeModalButton}>
+              <Text style={styles.closeModalButtonText}>Close</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -264,9 +295,10 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: "#e9ecef",
     borderRadius: 8,
-    marginBottom: 10,
+    marginTop: 8,
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: "#dee2e6",
+    borderColor: "#868e96",
   },
   medicineText: {
     fontSize: width * 0.045,
@@ -311,10 +343,9 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   pharmacyItem: {
-    padding: 16,
+    padding: 20,
     backgroundColor: "#e9ecef",
     borderRadius: 8,
-    marginBottom: 10,
     borderWidth: 1,
     borderColor: "#dee2e6",
   },
@@ -322,5 +353,47 @@ const styles = StyleSheet.create({
     fontSize: width * 0.045,
     color: "#495057",
     fontWeight: "bold",
+    marginBottom: 7,
+  },
+  seeAllButton: {
+    padding: 10,
+    backgroundColor: "#007bff",
+    borderRadius: 5,
+    marginTop: 10,
+  },
+  seeAllText: {
+    color: "#fff",
+    textAlign: "center",
+    fontSize: width*0.04,
+    fontWeight: 600,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 10,
+    width: width * 0.92,
+  },
+  modalTitle: {
+    fontSize: width * 0.045,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  closeModalButton: {
+    backgroundColor: "#dc3545",
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 10,
+  },
+  closeModalButtonText: {
+    color: "#fff",
+    textAlign: "center",
+    fontSize: width*0.038,
+    fontWeight: 600,
   },
 });

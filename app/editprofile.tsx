@@ -32,7 +32,7 @@ export default function EditProfileScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.push("/(tabs)/explore")}>
-            <Text style={styles.backButtonText}>← Back</Text>
+            <Text style={styles.backButtonText}>← </Text>
         </TouchableOpacity>
       <Text style={styles.heading}>Edit Your Profile</Text>
 
