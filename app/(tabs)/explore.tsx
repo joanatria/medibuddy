@@ -1,17 +1,15 @@
-import React, { useState } from "react";
-import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  Alert,
-  Dimensions,
-} from "react-native";
+import React, { useState, useEffect } from "react";
+import { StyleSheet, View, Text, TouchableOpacity, Alert, Dimensions } from "react-native";
 import { useRouter } from "expo-router";
 import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
+import * as FileSystem from "expo-file-system";  
+import { medSchedSchema } from "@/validation/schedule";
 
 export default function Settings() {
+  const [pdfUri, setPdfUri] = useState(null); 
   const router = useRouter();
 
   const handleLogout = () => {
@@ -31,22 +29,178 @@ export default function Settings() {
     ]);
   };
 
-  // Handle report generation confirmation
-  const handleGenerateReport = () => {
+  const generateFilename = () => {
+    const currentDate = new Date();
+    const formattedDate = currentDate.toISOString().split("T")[0];
+    return `UserReport_${formattedDate}.pdf`;
+  };
+
+  const handleGenerateReport = async () => {
     Alert.alert(
       "Generate Report",
       "Are you sure you want to generate the report?",
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Generate", onPress: () => console.log("Report generated") },
+        {
+          text: "Generate",
+          onPress: async () => {
+            try {
+              const medSchedDummyData = {
+                schedId: 1,
+                medId: 1,
+                medicine: {
+                  medId: 1,
+                  userId: 12345,
+                  user: {
+                    firstName: "John",
+                    middleName: "Doe",
+                    lastName: "Smith",
+                    username: "johndoe",  
+                    email: "john.doe@example.com",
+                    password: "securepassword123"  
+                  },
+                  name: "Paracetamol",
+                  description: "Pain reliever",
+                  instructions: "Take 1 tablet every 6 hours",
+                  dose: "500mg",
+                  requiredQty: "30",
+                  initialQty: "30",
+                  currentQty: "20",
+                  unit: "tablet",
+                  createdAt: "2024-01-01T08:00:00Z",
+                  updatedAt: "2024-01-01T08:00:00Z",
+                  attachments: "attachmentLink",
+                  fileType: "pdf",
+                  files: [new Uint8Array([1, 2, 3])] 
+                },
+                day: "2024-01-01",
+                time: "08:00",
+                timeTaken: "2024-01-01T08:00:00Z",
+                taken: true,
+                qtyTaken: "1",
+                action: "Taken",
+                createdAt: "2024-01-01T08:00:00Z",
+                updatedAt: "2024-01-01T08:00:00Z"
+              };              
+
+              medSchedSchema.parse(medSchedDummyData);
+              // Define a function to get full name from user data
+              const getFullName = (user) => `${user.firstName} ${user.middleName} ${user.lastName}`;
+  
+              // Create the HTML content using the dummy data
+              const htmlContent = `
+              <html>
+                <head>
+                  <style>
+                    body {
+                      font-family: Arial, sans-serif;
+                      margin: 0.75in; 
+                    }
+            
+                    h1 {
+                      font-size: 25px; /* Heading font size */
+                      text-align: center;
+                      
+                    }
+            
+                    h2 {
+                      font-size: 20px; /* Subheading font size */
+                    }
+            
+                    p {
+                      font-size: 16px; /* Content font size */
+                      margin-left: 15px
+                    }
+            
+                    table {
+                      width: 100%;
+                      border-collapse: collapse;
+                    }
+            
+                    th, td {
+                      padding: 8px;
+                      text-align: left;
+                      border: 1px solid #ddd;
+                      font-size: 16px; /* Table content font size */
+                    }
+            
+                    th {
+                      background-color: #f2f2f2;
+                    }
+                  </style>
+                </head>
+                <body>
+                  <h1>Medication Report</h1>
+                  <br/>
+                  <h2>Patient Information</h2>
+                  <p><strong>Patient Name:</strong> ${getFullName(medSchedDummyData.medicine.user)}</p>
+                  <br/>
+                  <h2>Medication Details</h2>
+                  <p><strong>Medication Name:</strong> ${medSchedDummyData.medicine.name}</p>
+                  <p><strong>Description:</strong> ${medSchedDummyData.medicine.description}</p>
+                  <p><strong>Instructions:</strong> ${medSchedDummyData.medicine.instructions}</p>
+                  <p><strong>Dosage:</strong> ${medSchedDummyData.medicine.dose}</p>
+
+                  <br/>
+                  <h2>Schedule</h2>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Taken</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>${medSchedDummyData.day}</td>
+                        <td>${medSchedDummyData.time}</td>
+                        <td>${medSchedDummyData.taken ? "Yes" : "No"}</td>
+                        <td>${medSchedDummyData.action}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </body>
+              </html>
+            `;            
+  
+              // Generate the PDF from the HTML content
+              const { uri } = await Print.printToFileAsync({
+                html: htmlContent,
+              });
+  
+              // Custom file name
+              const newFilename = generateFilename();
+              const newUri = FileSystem.documentDirectory + newFilename;
+  
+              // Move the file to the new location with the custom filename
+              await FileSystem.moveAsync({
+                from: uri,
+                to: newUri,
+              });
+  
+              // Save the new PDF URI to state
+              setPdfUri(newUri);
+  
+              console.log("Report generated at:", newUri);
+            } catch (error) {
+              console.error("Error generating report:", error);
+            }
+          },
+        },
       ]
     );
-  };
+  };  
 
-  // Navigate to the "Edit Profile" page
-  const navigateToEditProfile = () => {
-    console.log("Navigating to Edit Profile");
-    // Use navigation logic here, e.g., navigation.navigate('EditProfile')
+  // Function to open the PDF in the default viewer
+  const openPdf = async () => {
+    if (pdfUri) {
+      // Open the PDF with the native PDF viewer
+      await Sharing.shareAsync(pdfUri);
+    } else {
+      Alert.alert("No Report", "The report has not been generated yet.");
+    }
   };
 
   return (
@@ -74,6 +228,30 @@ export default function Settings() {
           <View style={styles.separator} />
         </View>
       </TouchableOpacity>
+
+      {/* Open/View Generated Report */}
+      {pdfUri && (
+        <TouchableOpacity onPress={openPdf}>
+          <View style={styles.optionContainer}>
+            <View style={styles.optionRow}>
+              <Text>
+                <FontAwesome
+                  name="file-pdf-o"
+                  size={24}
+                  color="#000"
+                  style={styles.icon}
+                />{" "}
+              </Text>
+              <Text style={styles.optionText}>View/Download Report</Text>
+              <Text style={styles.arrowText}>{">"}</Text>
+            </View>
+            <Text style={styles.optionDescription}>
+              View or download the generated PDF report.
+            </Text>
+            <View style={styles.separator} />
+          </View>
+        </TouchableOpacity>
+      )}
 
       {/* Check Pharmacies */}
       <TouchableOpacity onPress={() => router.push("/pharmacy")}>
@@ -140,6 +318,7 @@ export default function Settings() {
           <View style={styles.separator} />
         </View>
       </TouchableOpacity>
+    
     </View>
   );
 }
@@ -191,6 +370,6 @@ const styles = StyleSheet.create({
     borderBottomColor: "#ccc",
   },
   icon: {
-    marginRight: 10, // Space between icon and text
+    marginRight: 10, 
   },
 });
