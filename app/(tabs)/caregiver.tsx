@@ -199,7 +199,6 @@ export default function CaregiverTab() {
         `${process.env.EXPO_PUBLIC_API_URL}carer/user/${userId}`
       );
       const allCaregivers = await response.json();
-      console.log(allCaregivers);
       setCaregivers(allCaregivers);
     } catch (error) {
       console.error("Error fetching caregivers:", error);
