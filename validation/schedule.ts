@@ -12,15 +12,7 @@ export const medSchedSchema = z.object({
       (date) => date === undefined || !isNaN(new Date(date).getTime()),
       "Invalid day format"
     ), // Validates as a date string
-  time: z
-    .string()
-    .optional()
-    .refine(
-      (time) =>
-        time === undefined ||
-        /^[0-2][0-9]:[0-5][0-9](:[0-5][0-9](\.\d+)?)?$/.test(time),
-      "Invalid time format"
-    ), // Validates time in HH:mm:ss or HH:mm format
+  time: z.string().optional(),
   timeTaken: z
     .string()
     .optional()
