@@ -1008,30 +1008,7 @@ export default function MedicationTab() {
                 {item.currentQty} {item.unit}
               </Text>
             </View>
-            <View style={[styles.actionButtons, { padding: 5 }]}>
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  styles.editButton,
-                  {
-                    borderRadius: 8,
-                    backgroundColor: "#465293",
-                    marginRight: 0,
-                  },
-                ]}
-                onPress={() => handleEditMedication(item.medId ?? 0)}
-              >
-                <Text style={styles.actionButtonText}>
-                  <Text>
-                    <MaterialCommunityIcons
-                      name="pencil"
-                      size={15}
-                      color="white"
-                    />
-                  </Text>{" "}
-                  Edit
-                </Text>
-              </TouchableOpacity>
+            <View style={[styles.actionButtons, { padding: 2 }]}>
               <TouchableOpacity
                 style={[
                   styles.actionButton,
@@ -1047,6 +1024,28 @@ export default function MedicationTab() {
                     color="white"
                   />{" "}
                   Delete
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  styles.editButton,
+                  {
+                    borderRadius: 8,
+                    backgroundColor: "#465293",
+                  },
+                ]}
+                onPress={() => handleEditMedication(item.medId ?? 0)}
+              >
+                <Text style={styles.actionButtonText}>
+                  <Text>
+                    <MaterialCommunityIcons
+                      name="pencil"
+                      size={15}
+                      color="white"
+                    />
+                  </Text>{" "}
+                  Edit
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1202,7 +1201,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 19,
     padding: 18,
     borderWidth: 1,
-    borderColor: "gray",
+    borderColor: "rgb(196, 196, 196)",
     position: "relative",
   },
   medicationDetails: {
