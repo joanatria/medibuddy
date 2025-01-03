@@ -209,12 +209,6 @@ export default function MedicationTab() {
           Number(medicationFormData.instructions.split(", ")[1])
         ).toString(),
         userId: userId,
-        instructions: `${medicationFormData.instructions.split(", ")[0]}, ${
-          medicationFormData.instructions.split(", ")[1]
-        }, ${medicationFormData.instructions.split(", ")[2]}, ${
-          medicationFormData.instructions.split(", ")[3] ||
-          new Date().toISOString().split("T")[0]
-        }`,
       });
 
       let startingDate = medicationFormData.instructions.split(", ")[3]
@@ -271,52 +265,58 @@ export default function MedicationTab() {
 
       const medicationData = await response.json();
       const medId = medicationData.medId;
-      let currentDay = new Date(startingDate);
       const daysToAdd =
         medicationFormData.instructions.split(", ")[2] === "Daily" ? 1 : 2;
       const totalDays = Number(medicationFormData.instructions.split(", ")[1]);
 
       for (let day = 0; day < totalDays; day++) {
         const dailyTimeslots = timeslots.split(", ");
+        const currentDate = new Date(startingDate);
+        currentDate.setDate(currentDate.getDate() + day * daysToAdd);
+
         for (const time of dailyTimeslots) {
-          const [hours, minutes] = time.split(":");
-          const scheduleDate = new Date(currentDay);
-          scheduleDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0);
+          try {
+            // Parse the time string
+            const [hours, minutes] = time.split(":");
+            const hour = parseInt(hours, 10);
+            const minute = parseInt(minutes, 10);
 
-          const [timeStr, period] = time.split(" ");
-          const [hours1, minutes1] = timeStr.split(":");
-          let hour = parseInt(hours1);
-          if (period === "PM" && hour !== 12) hour += 12;
-          if (period === "AM" && hour === 12) hour = 0;
-          const formattedTime = `${hour
-            .toString()
-            .padStart(2, "0")}:${minutes1}`;
+            // Create schedule date
+            const scheduleDate = new Date(currentDate);
 
-          const scheduleData = medSchedSchema.parse({
-            medId: medId,
-            day: scheduleDate.toISOString().split("T")[0],
-            time: formattedTime,
-          });
-          const scheduleResponse = await fetch(
-            `${process.env.EXPO_PUBLIC_API_URL}sched`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(scheduleData),
-            }
-          );
+            const formattedTime = `${hour.toString().padStart(2, "0")}:${minute
+              .toString()
+              .padStart(2, "0")}`;
+            console.log(scheduleDate.toISOString().split("T")[0]);
 
-          if (!scheduleResponse.ok) {
-            const errorData = await scheduleResponse.json();
-            console.error(
-              `Failed to create schedule for ${currentDay}:`,
-              errorData.message
+            const scheduleData = medSchedSchema.parse({
+              medId: medId,
+              day: scheduleDate.toISOString().split("T")[0],
+              time: formattedTime,
+            });
+
+            const scheduleResponse = await fetch(
+              `${process.env.EXPO_PUBLIC_API_URL}sched`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(scheduleData),
+              }
             );
+
+            if (!scheduleResponse.ok) {
+              const errorData = await scheduleResponse.json();
+              console.error(
+                `Failed to create schedule for ${scheduleDate.toISOString()}:`,
+                errorData.message
+              );
+            }
+          } catch (error) {
+            console.error(`Error processing time slot ${time}:`, error);
           }
         }
-        currentDay.setDate(currentDay.getDate() + daysToAdd);
       }
       Alert.alert("Success", "Medication and schedule added successfully!");
       clearForm();
@@ -555,7 +555,7 @@ export default function MedicationTab() {
                               value={medicationFormData.unit}
                               items={[
                                 { label: "mL", value: "mL" },
-                                { label: "pieces", value: "pieces" },
+                                { label: "piece/s", value: "piece/s" },
                               ]}
                               setOpen={setDropdownOpen}
                               setValue={(callback) => {
@@ -784,14 +784,14 @@ export default function MedicationTab() {
                                   </Text>
                                 </View>
                               </TouchableOpacity>
-                              {showDatePicker && (
-                                <DateTimePicker
-                                  mode="date"
-                                  value={new Date()}
-                                  onChange={handleDateChange}
-                                  style={styles.dropdown}
-                                />
-                              )}
+                              <DateTimePickerModal
+                                isVisible={showDatePicker}
+                                mode="date"
+                                onConfirm={(date) =>
+                                  handleDateChange(null, date)
+                                }
+                                onCancel={() => setShowDatePicker(false)}
+                              />
                             </View>
                           </View>
                         </View>

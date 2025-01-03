@@ -8,6 +8,7 @@ import {
   Alert,
   Dimensions,
   TextInput,
+  Modal,
 } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { ThemedView } from "@/components/ThemedView";
@@ -21,6 +22,15 @@ export default function HomeScreen() {
   const [medications, setMedications] = useState<MedicineSchema[]>([]);
   const [userId, setUserId] = useState<number>(0);
   const [schedules, setSchedules] = useState<MedSchedSchema[]>([]);
+  const [takenModalVisible, setTakenModalVisible] = useState(false);
+  const [missedModalVisible, setMissedModalVisible] = useState(false);
+  const [selectedSchedule, setSelectedSchedule] =
+    useState<MedSchedSchema | null>(null);
+  const [tempQuantity, setTempQuantity] = useState("");
+  const [tempTime, setTempTime] = useState("");
+  const [missedAction, setMissedAction] = useState<"skip" | "take" | null>(
+    null
+  );
 
   const onDateSelect = (day: { dateString: string }) => {
     setSelectedDate(day.dateString);
@@ -107,6 +117,35 @@ export default function HomeScreen() {
     }
   };
 
+  const handleTakenPress = (sched: MedSchedSchema) => {
+    setSelectedSchedule(sched);
+    setTempQuantity("");
+    setTempTime("");
+    setTakenModalVisible(true);
+  };
+
+  const handleMissedPress = (sched: MedSchedSchema) => {
+    setSelectedSchedule(sched);
+    setMissedModalVisible(true);
+  };
+
+  const handleTakenSubmit = () => {
+    if (selectedSchedule) {
+      markAs(selectedSchedule.schedId!, "Taken", tempQuantity, tempTime);
+      setTakenModalVisible(false);
+    }
+  };
+
+  const handleMissedSubmit = () => {
+    if (selectedSchedule && missedAction) {
+      if (missedAction === "take") {
+        handleMissedDose(selectedSchedule);
+      }
+      markAs(selectedSchedule.schedId!, "Missed", undefined, undefined);
+      setMissedModalVisible(false);
+    }
+  };
+
   return (
     <ThemedView style={styles.container}>
       <Text style={styles.heading}>Welcome to MediBuddy!</Text>
@@ -139,9 +178,15 @@ export default function HomeScreen() {
                 <View style={styles.medicationDetails}>
                   <Text style={styles.medicationText}>
                     {medications.find((med) => med.medId === item.medId)?.name}{" "}
-                    - {item.qtyTaken || "N/A"}
+                    - {item.medicine?.dose} {item.medicine?.unit}
                   </Text>
-                  <Text style={styles.medicationTime}>Time: {item.time}</Text>
+                  <Text style={styles.medicationTime}>
+                    Time:{" "}
+                    {new Date(`1970-01-01T${item.time}`).toLocaleTimeString(
+                      "en-US",
+                      { hour: "numeric", minute: "2-digit", hour12: true }
+                    )}
+                  </Text>
                 </View>
 
                 {item.taken && (
@@ -158,84 +203,19 @@ export default function HomeScreen() {
                 )}
 
                 {!item.taken && (
-                  <View style={styles.buttonsContainer}>
-                    <View style={styles.inputContainer}>
-                      <Text style={styles.inputLabel}>Quantity Taken</Text>
-                      <TextInput
-                        style={styles.quantityInput}
-                        placeholder="Quantity Taken"
-                        keyboardType="numeric"
-                        value={item.qtyTaken || ""}
-                        maxLength={3}
-                        onChangeText={(text) => {
-                          const quantity = Math.min(
-                            parseInt(text) || 0,
-                            parseInt(
-                              medications.find(
-                                (med) => med.medId === item.medId
-                              )?.dose || "0"
-                            )
-                          );
-                          setSchedule((prevSchedule) =>
-                            prevSchedule.map((sched) =>
-                              sched.schedId === item.schedId
-                                ? { ...sched, qtyTaken: quantity.toString() }
-                                : sched
-                            )
-                          );
-                        }}
-                      />
-                    </View>
-
-                    <View style={styles.inputContainer}>
-                      <Text style={styles.inputLabel}>Time Taken</Text>
-                      <TextInput
-                        style={styles.timeInput}
-                        placeholder="HH:MM"
-                        keyboardType="numeric"
-                        value={item.timeTaken || ""}
-                        maxLength={5}
-                        onChangeText={(text) => {
-                          setSchedule((prevSchedule) =>
-                            prevSchedule.map((sched) =>
-                              sched.schedId === item.schedId
-                                ? { ...sched, timeTaken: text }
-                                : sched
-                            )
-                          );
-                        }}
-                      />
-                    </View>
-
-                    <View style={styles.actionButtonsContainer}>
-                      <TouchableOpacity
-                        style={styles.takenButton}
-                        onPress={() =>
-                          markAs(
-                            item.schedId!,
-                            "Taken",
-                            item.qtyTaken ?? undefined,
-                            item.timeTaken
-                          )
-                        }
-                      >
-                        <Text style={styles.buttonText}>Taken</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.missedButton}
-                        onPress={() => {
-                          handleMissedDose(item);
-                          markAs(
-                            item.schedId!,
-                            "Missed",
-                            item.qtyTaken,
-                            item.timeTaken
-                          );
-                        }}
-                      >
-                        <Text style={styles.buttonText}>Missed</Text>
-                      </TouchableOpacity>
-                    </View>
+                  <View style={styles.actionButtonsContainer}>
+                    <TouchableOpacity
+                      style={styles.missedButton}
+                      onPress={() => handleMissedPress(item)}
+                    >
+                      <Text style={styles.buttonText}>Missed</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.takenButton}
+                      onPress={() => handleTakenPress(item)}
+                    >
+                      <Text style={styles.buttonText}>Taken</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
@@ -247,6 +227,99 @@ export default function HomeScreen() {
           </Text>
         )}
       </View>
+
+      <Modal
+        visible={takenModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setTakenModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Mark as Taken</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Quantity Taken"
+              keyboardType="numeric"
+              value={tempQuantity}
+              onChangeText={setTempQuantity}
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Time Taken (HH:MM)"
+              value={tempTime}
+              onChangeText={setTempTime}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setTakenModalVisible(false)}
+              >
+                <Text style={[styles.buttonText, { textAlign: "center" }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={handleTakenSubmit}
+              >
+                <Text style={[styles.buttonText, { textAlign: "center" }]}>
+                  Confirm
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={missedModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setMissedModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Missed Dose Action</Text>
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                missedAction === "skip" && styles.selectedAction,
+              ]}
+              onPress={() => setMissedAction("skip")}
+            >
+              <Text style={styles.actionButtonText}>Skip Dose</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                missedAction === "take" && styles.selectedAction,
+              ]}
+              onPress={() => setMissedAction("take")}
+            >
+              <Text style={styles.actionButtonText}>Take Dose</Text>
+            </TouchableOpacity>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setMissedModalVisible(false)}
+              >
+                <Text style={[styles.buttonText, { textAlign: "center" }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={handleMissedSubmit}
+              >
+                <Text style={[styles.buttonText, { textAlign: "center" }]}>
+                  Confirm
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -265,7 +338,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     backgroundColor: "#fff",
-    paddingBottom: 80,
   },
   calendar: {
     marginBottom: 16,
@@ -282,7 +354,6 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
     padding: 16,
     marginBottom: 16,
-    backgroundColor: "#f9f9f9",
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#ddd",
@@ -297,21 +368,21 @@ const styles = StyleSheet.create({
   },
   medicationTime: {
     fontSize: width * 0.05,
-    color: "#888",
+    color: "black",
   },
   takenButton: {
     backgroundColor: "#4CAF50",
     padding: 12,
     borderRadius: 4,
     alignItems: "center",
-    width: 160,
+    width: "50%",
   },
   missedButton: {
     backgroundColor: "#FF5722",
     padding: 12,
     borderRadius: 4,
     alignItems: "center",
-    width: 160,
+    width: "50%",
   },
   buttonText: {
     color: "white",
@@ -319,10 +390,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   takenBackground: {
-    backgroundColor: "#d4f8e8",
+    backgroundColor: "rgba(53, 255, 168, 0.9)",
   },
   missedBackground: {
-    backgroundColor: "#ffd6d6",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
   },
   statusText: {
     position: "absolute",
@@ -377,6 +448,63 @@ const styles = StyleSheet.create({
   actionButtonsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 10,
+    gap: 5,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    backgroundColor: "white",
+    padding: 20,
+    borderRadius: 10,
+    width: width * 0.8,
+  },
+  modalTitle: {
+    fontSize: width * 0.05,
+    fontWeight: "bold",
+    marginBottom: 15,
+    textAlign: "center",
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 10,
+    fontSize: width * 0.045,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 15,
+  },
+  modalButton: {
+    padding: 12,
+    borderRadius: 5,
+    width: "48%",
+  },
+  cancelButton: {
+    backgroundColor: "#FF5722",
+  },
+  confirmButton: {
+    backgroundColor: "#4CAF50",
+  },
+  actionButton: {
+    padding: 15,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    marginBottom: 10,
+  },
+  selectedAction: {
+    backgroundColor: "#e3f2fd",
+    borderColor: "#2196F3",
+  },
+  actionButtonText: {
+    fontSize: width * 0.045,
+    textAlign: "center",
   },
 });
