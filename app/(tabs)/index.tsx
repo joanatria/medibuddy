@@ -16,6 +16,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { MedSchedSchema } from "@/validation/schedule";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MedicineSchema } from "@/validation/medicine";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 
 export default function HomeScreen() {
   const [selectedDate, setSelectedDate] = useState<string | null>(
@@ -36,6 +37,7 @@ export default function HomeScreen() {
   );
   const [isTakenLoading, setIsTakenLoading] = useState(false);
   const [isMissedLoading, setIsMissedLoading] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   const onDateSelect = (day: { dateString: string }) => {
     setSelectedDate(day.dateString);
@@ -224,6 +226,15 @@ export default function HomeScreen() {
     return now > scheduleTime ? "missed" : "upcoming";
   };
 
+  const handleConfirm = (time: Date) => {
+    setTempTime(time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    setShowTimePicker(false);
+  };
+
+  const hideDatePicker = () => {
+    setShowTimePicker(false);
+  };
+
   return (
     <ThemedView style={styles.container}>
       <Text style={styles.heading}>Welcome to MediBuddy!</Text>
@@ -352,12 +363,25 @@ export default function HomeScreen() {
                   value={tempQuantity}
                   onChangeText={setTempQuantity}
                 />
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="Time Taken (HH:MM)"
-                  value={tempTime}
-                  onChangeText={setTempTime}
-                />
+                <View>
+                      <TouchableOpacity
+                        onPress={() => setShowTimePicker(true)}
+                        style={[
+                          { width: "100%"},
+                        ]}
+                      >
+                        <Text style={[styles.modalInput, { color: 'gray' }]}>
+                          {tempTime || 'Time Taken (HH:MM)'}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <DateTimePickerModal
+                        isVisible={showTimePicker}
+                        mode="time"
+                        onConfirm={handleConfirm}
+                        onCancel={hideDatePicker}
+                      />
+                </View>
                 <View style={styles.modalButtons}>
                   <TouchableOpacity
                     style={[styles.modalButton, styles.cancelButton]}
@@ -497,7 +521,7 @@ const styles = StyleSheet.create({
     color: "black",
   },
   takenButton: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#28a745",
     padding: 12,
     borderRadius: 4,
     alignItems: "center",
@@ -516,13 +540,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   takenBackground: {
-    backgroundColor: "rgba(53, 255, 168, 0.9)",
+    backgroundColor: "rgba(180, 255, 195, 0.9)",
   },
   missedBackground: {
     backgroundColor: "rgba(255, 255, 255, 0.9)",
   },
   upcomingBackground: {
-    backgroundColor: "rgba(255, 255, 0, 0.9)",
+    backgroundColor: "rgba(255, 239, 179, 0.9)"  
   },
   statusText: {
     position: "absolute",
@@ -538,7 +562,7 @@ const styles = StyleSheet.create({
     color: "#FF5722",
   },
   upcomingText: {
-    color: "#FFD700",
+    color: "#FF8C00",
   },
   noDataText: {
     textAlign: "center",
