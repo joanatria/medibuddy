@@ -9,8 +9,22 @@ import * as FileSystem from "expo-file-system";
 import { medSchedSchema } from "@/validation/schedule";
 
 export default function Settings() {
-  const [pdfUri, setPdfUri] = useState(null); 
+  const [pdfUri, setPdfUri] = useState<string | null>(null);
+  const [userId, setUserId] = useState<number | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    const fetchUserId = async () => {
+      try {
+        const id = await AsyncStorage.getItem("userId");
+        const numberId = id ? Number(id) : null;
+        setUserId(numberId);
+      } catch (error) {
+        console.error("Error fetching userId from AsyncStorage", error);
+      }
+    };
+    fetchUserId();
+  }, []);
 
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to log out?", [
@@ -18,11 +32,46 @@ export default function Settings() {
       {
         text: "Logout",
         onPress: async () => {
-          try {
-            await AsyncStorage.clear();
-            router.push("/");
-          } catch (error) {
-            console.error("Error logging out:", error);
+          if (userId !== null) {
+            try {
+              // Make API call to logout
+              const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}logout?userId=${userId}`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+              });
+  
+              // Check the response text
+              const responseText = await response.text();
+              console.log("API response:", responseText);
+  
+              // Handle response indicating the user is already logged out
+              if (responseText === "User not found or already logged out") {
+                await AsyncStorage.clear();
+                console.log("AsyncStorage cleared (User already logged out)");
+                router.replace("/app"); 
+              } else if (!response.ok) {
+                throw new Error("Failed to log out");
+              } else {
+                // If the response is valid, clear AsyncStorage
+                await AsyncStorage.clear();
+                console.log("AsyncStorage cleared after successful logout");
+  
+                // Show success alert before routing
+                Alert.alert("Success", "You have been logged out successfully.", [
+                  {
+                    text: "OK",
+                    onPress: () => {
+                      console.log("Navigating to login page...");
+                      router.replace("/app"); 
+                    },
+                  },
+                ]);
+              }
+            } catch (error) {
+              console.error("Error logging out:", error);
+            }
           }
         },
       },
@@ -85,7 +134,7 @@ export default function Settings() {
 
               medSchedSchema.parse(medSchedDummyData);
               // Define a function to get full name from user data
-              const getFullName = (user) => `${user.firstName} ${user.middleName} ${user.lastName}`;
+              const getFullName = (user: { firstName: string, middleName: string, lastName: string }) => `${user.firstName} ${user.middleName} ${user.lastName}`;
   
               // Create the HTML content using the dummy data
               const htmlContent = `
@@ -335,7 +384,7 @@ const styles = StyleSheet.create({
   heading: {
     marginTop: 35,
     textAlign: "center",
-    fontSize: width * 0.05,
+    fontSize: width * 0.06,
     fontWeight: "bold",
     marginBottom: 40,
   },
@@ -344,19 +393,19 @@ const styles = StyleSheet.create({
   },
   optionRow: {
     flexDirection: "row",
-    alignItems: "center", // Align icon and text horizontally
+    alignItems: "center", 
   },
   optionText: {
     color: "#000",
-    fontSize: width * 0.045,
+    fontSize: width * 0.05,
     fontWeight: "bold",
-    flex: 1, // This ensures text takes up available space
+    flex: 1, 
   },
   arrowText: {
     color: "#666",
     fontSize: width * 0.035,
-    textAlign: "right", // Align arrow text to the right
-    paddingTop: 8,
+    textAlign: "right", 
+    paddingTop: 10,
   },
   optionDescription: {
     color: "#666",

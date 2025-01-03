@@ -9,11 +9,10 @@ import {
   Dimensions,
   ScrollView,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-const { width } = Dimensions.get("window");
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -27,6 +26,9 @@ export default function EditProfileScreen() {
   });
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState<number | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
 
   // Fetch user ID from AsyncStorage
   useEffect(() => {
@@ -116,6 +118,41 @@ export default function EditProfileScreen() {
     }
   };
 
+  const handleChangePassword = async () => {
+    if (!oldPassword || !newPassword) {
+      Alert.alert("Error", "Both fields are required.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}${userId}/change-password`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ oldPassword, newPassword }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to change password");
+      }
+
+      Alert.alert("Success", "Your password has been updated successfully!");
+      setModalVisible(false);
+      setOldPassword("");
+      setNewPassword("");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to change password. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: "center" }]}>
@@ -145,12 +182,63 @@ export default function EditProfileScreen() {
           />
         </View>
       ))}
-      <TouchableOpacity style={styles.button} onPress={handleUpdateProfile}>
+      
+      <TouchableOpacity style={styles.mainButton} onPress={handleUpdateProfile}>
         <Text style={styles.buttonText}>Update Profile</Text>
       </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.mainButton, { backgroundColor: "#555" }]}
+        onPress={() => setModalVisible(true)}
+      >
+        <Text style={styles.buttonText}>Change Password</Text>
+      </TouchableOpacity>
+
+      <Modal visible={modalVisible} animationType="slide" transparent>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Change Password</Text>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Old Password</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Old Password"
+                secureTextEntry
+                value={oldPassword}
+                onChangeText={setOldPassword}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>New Password</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="New Password"
+                secureTextEntry
+                value={newPassword}
+                onChangeText={setNewPassword}
+              />
+            </View>
+
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity style={styles.button} onPress={handleChangePassword}>
+                <Text style={styles.buttonText}>Submit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: "#d9534f" }]}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.buttonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
+
+const { width } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
   container: {
@@ -162,11 +250,12 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   title: {
-    fontSize: 26,
+    fontSize: width * 0.06,
     fontWeight: "bold",
     color: "#333",
     marginBottom: 30,
     textAlign: "center",
+    marginTop: 35,
   },
   formGroup: {
     width: "100%",
@@ -194,7 +283,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 8,
     alignItems: "center",
-    width: "90%",
+    width: "48%",
+    marginTop: 16,
+  },
+  mainButton: {
+    backgroundColor: "#007bff",
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: "center",
+    width: "100%",
     marginTop: 16,
   },
   buttonText: {
@@ -213,5 +311,30 @@ const styles = StyleSheet.create({
     top: 35,
     left: 16,
     padding: 10,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 8,
+    width: "90%", 
+    maxWidth: 500,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: width*0.055,
+    fontWeight: "bold",
+    marginBottom: 25,
+    color: "#333",
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around", 
+    width: "100%", 
   },
 });
