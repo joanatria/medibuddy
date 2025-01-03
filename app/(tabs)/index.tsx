@@ -503,12 +503,13 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     justifyContent: "flex-start",
     padding: 16,
+    paddingTop: 20,
     marginBottom: 16,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#ddd",
     position: "relative",
-  },
+  },  
   medicationDetails: {
     paddingBottom: 15,
   },
@@ -550,7 +551,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     position: "absolute",
-    top: 10,
+    top: 28,
     right: 10,
     fontWeight: "bold",
     fontSize: width * 0.045,
