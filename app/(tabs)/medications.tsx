@@ -209,14 +209,17 @@ export default function MedicationTab() {
           Number(medicationFormData.instructions.split(", ")[1])
         ).toString(),
         userId: userId,
+        instructions: `${medicationFormData.instructions.split(", ")[0]}, ${
+          medicationFormData.instructions.split(", ")[1]
+        }, ${medicationFormData.instructions.split(", ")[2]}, ${
+          medicationFormData.instructions.split(", ")[3] ||
+          new Date().toISOString().split("T")[0]
+        }`,
       });
 
-      let iterations =
-        Number(medicationFormData.instructions.split(", ")[0]) *
-        Number(medicationFormData.instructions.split(", ")[1]);
-      let startingDate = new Date(
-        medicationFormData.instructions.split(", ")[3]
-      );
+      let startingDate = medicationFormData.instructions.split(", ")[3]
+        ? new Date(medicationFormData.instructions.split(", ")[3])
+        : new Date();
       let timeslots = "";
 
       if (scheduleFormData.isEveryHours === true) {
@@ -784,17 +787,7 @@ export default function MedicationTab() {
                               {showDatePicker && (
                                 <DateTimePicker
                                   mode="date"
-                                  value={
-                                    medicationFormData.instructions.split(
-                                      ", "
-                                    )[3]
-                                      ? new Date(
-                                          medicationFormData.instructions.split(
-                                            ", "
-                                          )[3]
-                                        )
-                                      : new Date()
-                                  }
+                                  value={new Date()}
                                   onChange={handleDateChange}
                                   style={styles.dropdown}
                                 />
