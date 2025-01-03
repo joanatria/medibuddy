@@ -17,8 +17,17 @@ import { MedSchedSchema } from "@/validation/schedule";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MedicineSchema } from "@/validation/medicine";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
+import * as Notifications from "expo-notifications";
 
-export default function HomeScreen() {
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+const HomeScreen = () => {
   const [selectedDate, setSelectedDate] = useState<string | null>(
     new Date().toISOString().split("T")[0]
   );
@@ -100,6 +109,119 @@ export default function HomeScreen() {
     }
   }, [schedules, selectedDate, missedModalVisible, takenModalVisible]);
 
+  const triggeredNotifications = new Set(); // Set to track triggered notifications
+
+  useEffect(() => {
+    const requestPermission = async () => {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission denied",
+          "Notifications will not work without permissions."
+        );
+      }
+    };
+
+    requestPermission();
+
+    const checkSchedulesAndNotify = () => {
+      const now = new Date();
+
+      schedules.forEach((schedule, index) => {
+        if (
+          !schedule.day ||
+          !schedule.time ||
+          triggeredNotifications.has(index)
+        )
+          return;
+
+        const [year, month, day] = schedule.day
+          .split("-")
+          .map((value) => parseInt(value, 10));
+        const [hour, minute, second] = schedule.time
+          .split(":")
+          .map((value) => parseInt(value, 10));
+
+        const scheduleTime = new Date(
+          year,
+          month - 1,
+          day,
+          hour,
+          minute,
+          second
+        );
+
+        const timeDiffInMinutes =
+          (scheduleTime.getTime() - now.getTime()) / (1000 * 60);
+
+        if (
+          schedule.medicine?.notifDetails.includes("10 minutes before") &&
+          timeDiffInMinutes <= 10 &&
+          timeDiffInMinutes > 9 &&
+          now.getSeconds() === scheduleTime.getSeconds()
+        ) {
+          sendNotification(
+            schedule.medicine?.name ?? "Medication",
+            "10 minutes before",
+            schedule.medicine?.dose ?? "",
+            schedule.medicine?.unit ?? ""
+          );
+          triggeredNotifications.add(index); // Mark notification as sent
+        }
+
+        if (
+          schedule.medicine?.notifDetails.includes("5 minutes before") &&
+          timeDiffInMinutes <= 5 &&
+          timeDiffInMinutes > 4 &&
+          now.getSeconds() === scheduleTime.getSeconds()
+        ) {
+          sendNotification(
+            schedule.medicine?.name ?? "Medication",
+            "5 minutes before",
+            schedule.medicine?.dose ?? "",
+            schedule.medicine?.unit ?? ""
+          );
+          triggeredNotifications.add(index); // Mark notification as sent
+        }
+
+        if (
+          schedule.medicine?.notifDetails.includes("Exact time") &&
+          timeDiffInMinutes <= 0 &&
+          timeDiffInMinutes > -1 &&
+          now.getSeconds() === scheduleTime.getSeconds()
+        ) {
+          sendNotification(
+            schedule.medicine?.name ?? "Medication",
+            "",
+            schedule.medicine?.dose ?? "",
+            schedule.medicine?.unit ?? ""
+          );
+          triggeredNotifications.add(index); // Mark notification as sent
+        }
+      });
+    };
+
+    const timer = setInterval(checkSchedulesAndNotify, 1000); // Check every second
+
+    return () => clearInterval(timer); // Clean up timer on unmount
+  }, [schedules]);
+
+  const sendNotification = (
+    medicine: string,
+    timeInfo: string,
+    qty: string,
+    unit: string
+  ) => {
+    Notifications.scheduleNotificationAsync({
+      content: {
+        title: `Reminder: ${medicine}💊!`,
+        body: `🕒 ${timeInfo} it's time to take ${qty} ${unit} of ${medicine}. 🩺 Remember, your health matters! 🌟`,
+        data: { customData: { medicine, qty, unit } }, // Add custom data if needed
+        priority: "high", // Ensure the notification appears prominently
+      },
+      trigger: null, // Send immediately
+    });
+  };
   const handleMissedSubmit = async () => {
     if (!selectedSchedule || !missedAction) return;
     setIsMissedLoading(true);
@@ -227,7 +349,9 @@ export default function HomeScreen() {
   };
 
   const handleConfirm = (time: Date) => {
-    setTempTime(time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    setTempTime(
+      time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    );
     setShowTimePicker(false);
   };
 
@@ -364,23 +488,21 @@ export default function HomeScreen() {
                   onChangeText={setTempQuantity}
                 />
                 <View>
-                      <TouchableOpacity
-                        onPress={() => setShowTimePicker(true)}
-                        style={[
-                          { width: "100%"},
-                        ]}
-                      >
-                        <Text style={[styles.modalInput, { color: 'gray' }]}>
-                          {tempTime || 'Time Taken (HH:MM)'}
-                        </Text>
-                      </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setShowTimePicker(true)}
+                    style={[{ width: "100%" }]}
+                  >
+                    <Text style={[styles.modalInput, { color: "gray" }]}>
+                      {tempTime || "Time Taken (HH:MM)"}
+                    </Text>
+                  </TouchableOpacity>
 
-                      <DateTimePickerModal
-                        isVisible={showTimePicker}
-                        mode="time"
-                        onConfirm={handleConfirm}
-                        onCancel={hideDatePicker}
-                      />
+                  <DateTimePickerModal
+                    isVisible={showTimePicker}
+                    mode="time"
+                    onConfirm={handleConfirm}
+                    onCancel={hideDatePicker}
+                  />
                 </View>
                 <View style={styles.modalButtons}>
                   <TouchableOpacity
@@ -472,7 +594,7 @@ export default function HomeScreen() {
       </Modal>
     </ThemedView>
   );
-}
+};
 
 const { width } = Dimensions.get("window");
 
@@ -547,7 +669,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.9)",
   },
   upcomingBackground: {
-    backgroundColor: "rgba(255, 239, 179, 0.9)"  
+    backgroundColor: "rgba(255, 239, 179, 0.9)",
   },
   statusText: {
     position: "absolute",
@@ -668,3 +790,4 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
 });
+export default HomeScreen;

@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, View, Text, TouchableOpacity, Alert, Dimensions } from "react-native";
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  Alert,
+  Dimensions,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { FontAwesome } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import * as FileSystem from "expo-file-system";  
+import * as FileSystem from "expo-file-system";
 import { medicineSchema, MedicineSchema } from "@/validation/medicine";
 
 export default function Settings() {
@@ -45,7 +52,7 @@ export default function Settings() {
     if (userId) {
       fetchMedications();
     }
-  }, [userId]);  
+  }, [userId]);
 
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to log out?", [
@@ -56,39 +63,46 @@ export default function Settings() {
           if (userId !== null) {
             try {
               // Make API call to logout
-              const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}logout?userId=${userId}`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-              });
-  
+              const response = await fetch(
+                `${process.env.EXPO_PUBLIC_API_URL}logout?userId=${userId}`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                }
+              );
+
               // Check the response text
               const responseText = await response.text();
               console.log("API response:", responseText);
-  
+
               // Handle response indicating the user is already logged out
               if (responseText === "User not found or already logged out") {
                 await AsyncStorage.clear();
                 console.log("AsyncStorage cleared (User already logged out)");
-                router.replace("/app"); 
+                router.replace("/app");
               } else if (!response.ok) {
                 throw new Error("Failed to log out");
               } else {
                 // If the response is valid, clear AsyncStorage
                 await AsyncStorage.clear();
                 console.log("AsyncStorage cleared after successful logout");
-  
+
                 // Show success alert before routing
-                Alert.alert("Success", "You have been logged out successfully.", [
-                  {
-                    text: "OK",
-                    onPress: () => {
-                      console.log("Navigating to login page...");
-                      router.replace("/app"); 
+                Alert.alert(
+                  "Success",
+                  "You have been logged out successfully.",
+                  [
+                    {
+                      text: "OK",
+                      onPress: () => {
+                        console.log("Navigating to login page...");
+                        router.replace("/app");
+                      },
                     },
-                  },
-                ]);
+                  ]
+                );
               }
             } catch (error) {
               console.error("Error logging out:", error);
@@ -112,74 +126,83 @@ export default function Settings() {
               const response = await fetch(
                 `${process.env.EXPO_PUBLIC_API_URL}med/user/${userId}`
               );
-  
+
               if (!response.ok) {
                 Alert.alert("Error", "Failed to fetch medications.");
                 return;
               }
-  
+
               const data = await response.json();
-  
+
               if (data.length === 0) {
-                Alert.alert("No medications found", "Please add medications first.");
+                Alert.alert(
+                  "No medications found",
+                  "Please add medications first."
+                );
                 return;
               }
-  
-              const fullName = `${data[0]?.user?.firstName || "N/A"} ${data[0]?.user?.middleName || ""} ${data[0]?.user?.lastName || "N/A"}`.trim();
-  
+
+              const fullName = `${data[0]?.user?.firstName || "N/A"} ${
+                data[0]?.user?.middleName || ""
+              } ${data[0]?.user?.lastName || "N/A"}`.trim();
+
               let medicationDetails = "";
-  
+
               for (const med of data) {
                 console.log("Processing medication:", med);
-  
-                const { medId, name, description, instructions, dose, unit } = med;
-  
+
+                const { medId, name, description, instructions, dose, unit } =
+                  med;
+
                 if (!medId) {
                   console.error("Medication ID is missing or undefined:", med);
                   continue;
                 }
-  
+
                 const instructionsArray = instructions?.split(", ") || [];
                 if (instructionsArray.length !== 4) {
-                  console.error("Invalid instruction format for medication:", med);
+                  console.error(
+                    "Invalid instruction format for medication:",
+                    med
+                  );
                   continue;
                 }
-  
+
                 const [days, times, frequency, startDate] = instructionsArray;
-  
+
                 // Fetch all schedules for the current medication
                 const scheduleResponse = await fetch(
                   `${process.env.EXPO_PUBLIC_API_URL}sched/med/${medId}`
                 );
-  
+
                 let schedules = [];
                 if (scheduleResponse.ok) {
                   schedules = await scheduleResponse.json();
                 } else {
-                  console.error(`Failed to fetch schedules for medication: ${medId}`);
+                  console.error(
+                    `Failed to fetch schedules for medication: ${medId}`
+                  );
                 }
-  
+
                 const scheduleRows = schedules.length
                   ? schedules
                       .map((schedule) => {
-                        const scheduleDate = new Date(schedule.day).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          }
-                        );
-  
-                        const scheduleTime = new Date(`1970-01-01T${schedule.time || "00:00:00"}`).toLocaleTimeString(
-                          "en-US",
-                          {
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          }
-                        );
-  
+                        const scheduleDate = new Date(
+                          schedule.day
+                        ).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        });
+
+                        const scheduleTime = new Date(
+                          `1970-01-01T${schedule.time || "00:00:00"}`
+                        ).toLocaleTimeString("en-US", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                          hour12: true,
+                        });
+
                         return `
                           <tr>
                             <td>${scheduleDate}</td>
@@ -191,17 +214,19 @@ export default function Settings() {
                       })
                       .join("")
                   : "<tr><td colspan='4'>No schedules available</td></tr>";
-  
+
                 medicationDetails += `
                   <div class="section">
                     <p><strong>Medication Name:</strong> ${name}</p>
                     <p><strong>Description:</strong> ${description}</p>
                     <p><strong>Instructions:</strong> Take ${dose} ${unit}, ${frequency}</p>
-                    <p>${times} times a day for ${days} days starting ${new Date(startDate).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}.</p>
+                    <p>${times} times a day for ${days} days starting ${new Date(
+                  startDate
+                ).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}.</p>
                     <h3>Schedule</h3>
                     <table class="table">
                       <thead>
@@ -218,7 +243,7 @@ export default function Settings() {
                     </table>
                   </div>`;
               }
-  
+
               const htmlContent = `
                 <html>
                   <head>
@@ -266,11 +291,13 @@ export default function Settings() {
                   </body>
                 </html>
               `;
-  
-              const { uri } = await Print.printToFileAsync({ html: htmlContent });
+
+              const { uri } = await Print.printToFileAsync({
+                html: htmlContent,
+              });
               const newUri = `${FileSystem.documentDirectory}${fullName}_Report.pdf`;
               await FileSystem.moveAsync({ from: uri, to: newUri });
-  
+
               console.log("Report saved at:", newUri);
               setPdfUri(newUri);
             } catch (error) {
@@ -282,9 +309,7 @@ export default function Settings() {
       ]
     );
   };
-  
-  
-  
+
   // Function to open the PDF in the default viewer
   const openPdf = async () => {
     if (pdfUri) {
@@ -410,7 +435,6 @@ export default function Settings() {
           <View style={styles.separator} />
         </View>
       </TouchableOpacity>
-    
     </View>
   );
 }
@@ -436,18 +460,18 @@ const styles = StyleSheet.create({
   },
   optionRow: {
     flexDirection: "row",
-    alignItems: "center", 
+    alignItems: "center",
   },
   optionText: {
     color: "#000",
     fontSize: width * 0.05,
     fontWeight: "bold",
-    flex: 1, 
+    flex: 1,
   },
   arrowText: {
     color: "#666",
     fontSize: width * 0.035,
-    textAlign: "right", 
+    textAlign: "right",
     paddingTop: 10,
   },
   optionDescription: {
@@ -462,6 +486,6 @@ const styles = StyleSheet.create({
     borderBottomColor: "#ccc",
   },
   icon: {
-    marginRight: 10, 
+    marginRight: 10,
   },
 });
