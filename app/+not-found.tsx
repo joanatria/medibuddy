@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   Dimensions,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -68,7 +69,18 @@ export default function NotFoundScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Welcome to MediBuddy!</Text>
+      <Image
+        source={require("../assets/images/logo.png")}
+        style={styles.logo}
+      />
+
+      <Text style={styles.heading}>
+        <Text>Welcome to </Text>
+        <Text style={{ color: "#30b4c1" }}>Medi</Text>
+        <Text style={{ color: "#f6794f" }}>B</Text>
+        <Text style={{ color: "#1c3f49" }}>uddy</Text>
+        <Text style={styles.heading}>!</Text>
+      </Text>
 
       <View style={styles.formGroup}>
         <Text style={styles.label}>Username</Text>
@@ -111,7 +123,13 @@ export default function NotFoundScreen() {
 const { width } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
+  logo: {
+    width: width * 0.4, 
+    height: width * 0.4, 
+    resizeMode: "contain",
+  },
   container: {
+    marginTop: -30,
     flex: 1,
     padding: 16,
     justifyContent: "center",
@@ -119,10 +137,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   heading: {
-    fontSize: width * 0.06,
+    fontSize: width * 0.065,
     fontWeight: "bold",
     marginBottom: 40,
     textAlign: "center",
+    marginTop: -30,
   },
   input: {
     width: "100%",
@@ -138,7 +157,7 @@ const styles = StyleSheet.create({
   loginButton: {
     width: "90%",
     paddingVertical: 12,
-    backgroundColor: "#007bff",
+    backgroundColor: "#30b4c1",
     borderRadius: 8,
     alignItems: "center",
     marginTop: 16,
@@ -154,7 +173,7 @@ const styles = StyleSheet.create({
     color: "#666",
   },
   link: {
-    color: "#007bff",
+    color: "#30b4c1",
     fontWeight: "bold",
   },
   formGroup: {

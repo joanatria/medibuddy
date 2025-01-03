@@ -8,6 +8,7 @@ import {
   Alert,
   Dimensions,
   ScrollView,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { UserSchema, userSchema } from "@/validation/user";
@@ -93,6 +94,12 @@ const RegisterScreen = () => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+
+      <Image
+        source={require("../assets/images/logo.png")}
+        style={styles.logo}
+      />
+
       <Text style={styles.heading}>Create Your Account</Text>
 
       {/* Username */}
@@ -222,6 +229,11 @@ const RegisterScreen = () => {
 const { width } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
+  logo: {
+    width: width * 0.4, 
+    height: width * 0.4, 
+    resizeMode: "contain",
+  },
   container: {
     flexGrow: 1,
     padding: 25,
@@ -231,7 +243,7 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   heading: {
-    marginTop: 35,
+    marginTop: -30,
     fontSize: width * 0.06,
     fontWeight: "bold",
     marginBottom: 24,
@@ -251,7 +263,7 @@ const styles = StyleSheet.create({
   registerButton: {
     width: "90%",
     paddingVertical: 12,
-    backgroundColor: "#007bff",
+    backgroundColor: "#30b4c1",
     borderRadius: 8,
     alignItems: "center",
     marginTop: 16,
@@ -267,7 +279,7 @@ const styles = StyleSheet.create({
     color: "#666",
   },
   link: {
-    color: "#007bff",
+    color: "#30b4c1",
     fontWeight: "bold",
   },
   errorText: {
