@@ -209,6 +209,9 @@ export default function MedicationTab() {
     }
   };
 
+  const [interval, setInterval] = useState<number | null>(null); 
+  const [startTime, setStartTime] = useState<string | null>(null); 
+
   const handleAddMedication = async () => {
     try {
       const validatedData = medicineSchema.parse({
@@ -237,6 +240,9 @@ export default function MedicationTab() {
           const [hours, minutes] = scheduleFormData.startTime.split(":");
           baseTime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0);
         }
+
+        setInterval(interval);
+        setStartTime(scheduleFormData.startTime);
 
         for (let i = 0; i < timesPerDay; i++) {
           const currentTime = new Date(baseTime);
@@ -1149,7 +1155,7 @@ export default function MedicationTab() {
                     <Text style={styles.tableLabel}>Time Slot:</Text>
                     {selectedMedication?.scheduleData?.isEveryHours ? (
                       <Text style={styles.tableValue}>
-                        Every {selectedMedication.scheduleData.interval} hours starting at {selectedMedication.scheduleData.startTime}
+                        Every {interval} hours starting {startTime}
                       </Text>
                     ) : (
                       <View style={styles.tableValue}>
