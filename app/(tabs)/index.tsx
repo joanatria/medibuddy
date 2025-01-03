@@ -9,6 +9,7 @@ import {
   Dimensions,
   TextInput,
   Modal,
+  ActivityIndicator,
 } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { ThemedView } from "@/components/ThemedView";
@@ -33,6 +34,8 @@ export default function HomeScreen() {
   const [missedAction, setMissedAction] = useState<"skip" | "take" | null>(
     null
   );
+  const [isTakenLoading, setIsTakenLoading] = useState(false);
+  const [isMissedLoading, setIsMissedLoading] = useState(false);
 
   const onDateSelect = (day: { dateString: string }) => {
     setSelectedDate(day.dateString);
@@ -87,33 +90,103 @@ export default function HomeScreen() {
 
   // Update schedule whenever schedules array changes
   useEffect(() => {
-    if (selectedDate) {
+    if (selectedDate && !missedModalVisible && !takenModalVisible) {
       const filteredSchedules = schedules.filter(
         (sched) => sched.day === selectedDate
       );
       setSchedule(filteredSchedules);
     }
-  }, [schedules, selectedDate]);
+  }, [schedules, selectedDate, missedModalVisible, takenModalVisible]);
 
-  const markAs = (
-    id: number,
-    status: "Taken" | "Missed",
-    quantity: string | undefined,
-    timeTaken: string | undefined
-  ) => {
-    setSchedule((prevSchedule) =>
-      prevSchedule.map((sched) =>
-        sched.schedId === id
-          ? {
-              ...sched,
-              notified: true,
-              qtyTaken: quantity,
-              timeTaken: timeTaken ?? undefined,
-            }
-          : sched
-      )
-    );
-    Alert.alert("Medication Updated", `Marked as ${status}.`);
+  const handleMissedSubmit = async () => {
+    if (!selectedSchedule || !missedAction) return;
+    setIsMissedLoading(true);
+
+    try {
+      if (missedAction === "skip") {
+        // Handle skip action
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_API_URL}sched/check-taken/${selectedSchedule.schedId}/${userId}?isTaken=false&action=Missed: Skipping Dose`,
+          {
+            method: "PUT",
+          }
+        );
+
+        if (!response.ok) throw new Error("Failed to process skip action");
+
+        setSchedule((prevSchedule) =>
+          prevSchedule.map((sched) =>
+            sched.schedId === selectedSchedule.schedId
+              ? { ...sched, taken: false }
+              : sched
+          )
+        );
+
+        Alert.alert("Success", "Dose marked as skipped");
+        setMissedModalVisible(false);
+      } else if (missedAction === "take") {
+        // First mark as missed with actual time
+        const missedResponse = await fetch(
+          `${process.env.EXPO_PUBLIC_API_URL}sched/check-taken/${selectedSchedule.schedId}/${userId}?isTaken=false&action=Missed actual time: Dose taken`,
+          {
+            method: "PUT",
+          }
+        );
+
+        if (!missedResponse.ok)
+          throw new Error("Failed to process missed action");
+
+        // Then open taken modal for quantity input
+        setMissedModalVisible(false);
+        setTakenModalVisible(true);
+        return; // Exit early as taken modal will handle the rest
+      }
+    } catch (error) {
+      console.error("Error handling missed dose:", error);
+      Alert.alert("Error", "Failed to process missed dose action");
+    } finally {
+      setIsMissedLoading(false);
+      setMissedAction(null);
+    }
+  };
+
+  const handleTakenSubmit = async () => {
+    if (!selectedSchedule) return;
+    setIsTakenLoading(true);
+
+    try {
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}sched/check-taken/${selectedSchedule.schedId}/${userId}?isTaken=true&qtyTaken=${tempQuantity}`,
+        {
+          method: "PUT",
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to mark as taken");
+
+      setSchedule((prevSchedule) =>
+        prevSchedule.map((sched) =>
+          sched.schedId === selectedSchedule.schedId
+            ? {
+                ...sched,
+                taken: true,
+                qtyTaken: tempQuantity,
+                timeTaken: tempTime || new Date().toISOString(),
+              }
+            : sched
+        )
+      );
+
+      Alert.alert("Success", "Medication marked as taken");
+      setTakenModalVisible(false);
+      setTempQuantity("");
+      setTempTime("");
+    } catch (error) {
+      console.error("Error marking as taken:", error);
+      Alert.alert("Error", "Failed to mark medication as taken");
+    } finally {
+      setIsTakenLoading(false);
+    }
   };
 
   const handleMissedDose = (sched: MedSchedSchema) => {
@@ -142,21 +215,13 @@ export default function HomeScreen() {
     setMissedModalVisible(true);
   };
 
-  const handleTakenSubmit = () => {
-    if (selectedSchedule) {
-      markAs(selectedSchedule.schedId!, "Taken", tempQuantity, tempTime);
-      setTakenModalVisible(false);
-    }
-  };
+  const getScheduleStatus = (schedule: MedSchedSchema) => {
+    if (schedule.taken) return "taken";
 
-  const handleMissedSubmit = () => {
-    if (selectedSchedule && missedAction) {
-      if (missedAction === "take") {
-        handleMissedDose(selectedSchedule);
-      }
-      markAs(selectedSchedule.schedId!, "Missed", undefined, undefined);
-      setMissedModalVisible(false);
-    }
+    const now = new Date();
+    const scheduleTime = new Date(`${schedule.day}T${schedule.time}`);
+
+    return now > scheduleTime ? "missed" : "upcoming";
   };
 
   return (
@@ -178,14 +243,19 @@ export default function HomeScreen() {
       <View style={styles.listContainer}>
         {schedule.length > 0 ? (
           <FlatList
-            data={schedule}
+            data={[...schedule].sort((a, b) =>
+              (a.time || "").localeCompare(b.time || "")
+            )}
             keyExtractor={(item) => item.schedId?.toString() || ""}
             renderItem={({ item }) => (
               <View
                 style={[
                   styles.medicationItem,
-                  item.taken && styles.takenBackground,
-                  item.timeTaken === null && styles.missedBackground,
+                  getScheduleStatus(item) === "taken" && styles.takenBackground,
+                  getScheduleStatus(item) === "missed" &&
+                    styles.missedBackground,
+                  getScheduleStatus(item) === "upcoming" &&
+                    styles.upcomingBackground,
                 ]}
               >
                 <View style={styles.medicationDetails}>
@@ -194,42 +264,58 @@ export default function HomeScreen() {
                     - {item.medicine?.dose} {item.medicine?.unit}
                   </Text>
                   <Text style={styles.medicationTime}>
-                    {item.time}
                     Time:{" "}
                     {new Date(`1970-01-01T${item.time}`).toLocaleTimeString(
                       "en-US",
                       { hour: "numeric", minute: "2-digit", hour12: true }
                     )}
                   </Text>
-                </View>
-
-                {item.taken && (
                   <Text
                     style={[
                       styles.statusText,
-                      item.taken === true
-                        ? styles.takenText
-                        : styles.missedText,
+                      getScheduleStatus(item) === "taken" && styles.takenText,
+                      getScheduleStatus(item) === "missed" && styles.missedText,
+                      getScheduleStatus(item) === "upcoming" &&
+                        styles.upcomingText,
                     ]}
                   >
-                    {item.taken ? "Taken" : "Missed"}
+                    {getScheduleStatus(item).toUpperCase()}
                   </Text>
-                )}
+                </View>
 
                 {!item.taken && (
-                  <View style={styles.actionButtonsContainer}>
-                    <TouchableOpacity
-                      style={styles.missedButton}
-                      onPress={() => handleMissedPress(item)}
-                    >
-                      <Text style={styles.buttonText}>Missed</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.takenButton}
-                      onPress={() => handleTakenPress(item)}
-                    >
-                      <Text style={styles.buttonText}>Taken</Text>
-                    </TouchableOpacity>
+                  <View
+                    style={[
+                      styles.actionButtonsContainer,
+                      { justifyContent: "flex-end" },
+                    ]}
+                  >
+                    {getScheduleStatus(item) === "missed" && !item.action && (
+                      <TouchableOpacity
+                        style={styles.missedButton}
+                        onPress={() => handleMissedPress(item)}
+                      >
+                        <Text style={styles.buttonText}>Action</Text>
+                      </TouchableOpacity>
+                    )}
+                    {getScheduleStatus(item) === "missed" && item.action && (
+                      <Text
+                        style={[
+                          styles.missedText,
+                          { padding: 10, fontSize: width * 0.045 },
+                        ]}
+                      >
+                        {item.action}
+                      </Text>
+                    )}
+                    {getScheduleStatus(item) === "upcoming" && (
+                      <TouchableOpacity
+                        style={styles.takenButton}
+                        onPress={() => handleTakenPress(item)}
+                      >
+                        <Text style={styles.buttonText}>Take</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 )}
               </View>
@@ -246,42 +332,54 @@ export default function HomeScreen() {
         visible={takenModalVisible}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setTakenModalVisible(false)}
+        onRequestClose={() => !isTakenLoading && setTakenModalVisible(false)}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Mark as Taken</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Quantity Taken"
-              keyboardType="numeric"
-              value={tempQuantity}
-              onChangeText={setTempQuantity}
-            />
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Time Taken (HH:MM)"
-              value={tempTime}
-              onChangeText={setTempTime}
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setTakenModalVisible(false)}
-              >
-                <Text style={[styles.buttonText, { textAlign: "center" }]}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton]}
-                onPress={handleTakenSubmit}
-              >
-                <Text style={[styles.buttonText, { textAlign: "center" }]}>
-                  Confirm
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {isTakenLoading ? (
+              <ActivityIndicator
+                size="large"
+                color="#4CAF50"
+                style={styles.loader}
+              />
+            ) : (
+              <>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Quantity Taken"
+                  keyboardType="numeric"
+                  value={tempQuantity}
+                  onChangeText={setTempQuantity}
+                />
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Time Taken (HH:MM)"
+                  value={tempTime}
+                  onChangeText={setTempTime}
+                />
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => setTakenModalVisible(false)}
+                    disabled={isTakenLoading}
+                  >
+                    <Text style={[styles.buttonText, { textAlign: "center" }]}>
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.confirmButton]}
+                    onPress={handleTakenSubmit}
+                    disabled={isTakenLoading}
+                  >
+                    <Text style={[styles.buttonText, { textAlign: "center" }]}>
+                      Confirm
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -290,47 +388,61 @@ export default function HomeScreen() {
         visible={missedModalVisible}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setMissedModalVisible(false)}
+        onRequestClose={() => !isMissedLoading && setMissedModalVisible(false)}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Missed Dose Action</Text>
-            <TouchableOpacity
-              style={[
-                styles.actionButton,
-                missedAction === "skip" && styles.selectedAction,
-              ]}
-              onPress={() => setMissedAction("skip")}
-            >
-              <Text style={styles.actionButtonText}>Skip Dose</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.actionButton,
-                missedAction === "take" && styles.selectedAction,
-              ]}
-              onPress={() => setMissedAction("take")}
-            >
-              <Text style={styles.actionButtonText}>Take Dose</Text>
-            </TouchableOpacity>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setMissedModalVisible(false)}
-              >
-                <Text style={[styles.buttonText, { textAlign: "center" }]}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton]}
-                onPress={handleMissedSubmit}
-              >
-                <Text style={[styles.buttonText, { textAlign: "center" }]}>
-                  Confirm
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {isMissedLoading ? (
+              <ActivityIndicator
+                size="large"
+                color="#FF5722"
+                style={styles.loader}
+              />
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={[
+                    styles.actionButton,
+                    missedAction === "skip" && styles.selectedAction,
+                  ]}
+                  onPress={() => setMissedAction("skip")}
+                  disabled={isMissedLoading}
+                >
+                  <Text style={styles.actionButtonText}>Skip Dose</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.actionButton,
+                    missedAction === "take" && styles.selectedAction,
+                  ]}
+                  onPress={() => setMissedAction("take")}
+                  disabled={isMissedLoading}
+                >
+                  <Text style={styles.actionButtonText}>Take Dose</Text>
+                </TouchableOpacity>
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => setMissedModalVisible(false)}
+                    disabled={isMissedLoading}
+                  >
+                    <Text style={[styles.buttonText, { textAlign: "center" }]}>
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.confirmButton]}
+                    onPress={handleMissedSubmit}
+                    disabled={isMissedLoading}
+                  >
+                    <Text style={[styles.buttonText, { textAlign: "center" }]}>
+                      Confirm
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -409,6 +521,9 @@ const styles = StyleSheet.create({
   missedBackground: {
     backgroundColor: "rgba(255, 255, 255, 0.9)",
   },
+  upcomingBackground: {
+    backgroundColor: "rgba(255, 255, 0, 0.9)",
+  },
   statusText: {
     position: "absolute",
     top: 10,
@@ -421,6 +536,9 @@ const styles = StyleSheet.create({
   },
   missedText: {
     color: "#FF5722",
+  },
+  upcomingText: {
+    color: "#FFD700",
   },
   noDataText: {
     textAlign: "center",
@@ -520,5 +638,8 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: width * 0.045,
     textAlign: "center",
+  },
+  loader: {
+    marginVertical: 20,
   },
 });
