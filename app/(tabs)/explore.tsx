@@ -6,12 +6,16 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system";  
-import { medSchedSchema } from "@/validation/schedule";
+import { medicineSchema, MedicineSchema } from "@/validation/medicine";
 
 export default function Settings() {
   const [pdfUri, setPdfUri] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
   const router = useRouter();
+  const [medications, setMedications] = useState<MedicineSchema[]>([]);
+  const [filteredMedications, setFilteredMedications] = useState<
+    MedicineSchema[]
+  >([]);
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -25,6 +29,23 @@ export default function Settings() {
     };
     fetchUserId();
   }, []);
+
+  const fetchMedications = async () => {
+    const response = await fetch(
+      `${process.env.EXPO_PUBLIC_API_URL}med/user/${userId}`
+    );
+    if (response.ok) {
+      const data = await response.json();
+      setMedications(data);
+      setFilteredMedications(data);
+    }
+  };
+
+  useEffect(() => {
+    if (userId) {
+      fetchMedications();
+    }
+  }, [userId]);  
 
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to log out?", [
@@ -78,12 +99,6 @@ export default function Settings() {
     ]);
   };
 
-  const generateFilename = () => {
-    const currentDate = new Date();
-    const formattedDate = currentDate.toISOString().split("T")[0];
-    return `UserReport_${formattedDate}.pdf`;
-  };
-
   const handleGenerateReport = async () => {
     Alert.alert(
       "Generate Report",
@@ -94,154 +109,182 @@ export default function Settings() {
           text: "Generate",
           onPress: async () => {
             try {
-              const medSchedDummyData = {
-                schedId: 1,
-                medId: 1,
-                medicine: {
-                  medId: 1,
-                  userId: 12345,
-                  user: {
-                    firstName: "John",
-                    middleName: "Doe",
-                    lastName: "Smith",
-                    username: "johndoe",  
-                    email: "john.doe@example.com",
-                    password: "securepassword123"  
-                  },
-                  name: "Paracetamol",
-                  description: "Pain reliever",
-                  instructions: "Take 1 tablet every 6 hours",
-                  dose: "500mg",
-                  requiredQty: "30",
-                  initialQty: "30",
-                  currentQty: "20",
-                  unit: "tablet",
-                  createdAt: "2024-01-01T08:00:00Z",
-                  updatedAt: "2024-01-01T08:00:00Z",
-                  attachments: "attachmentLink",
-                  fileType: "pdf",
-                  files: [new Uint8Array([1, 2, 3])] 
-                },
-                day: "2024-01-01",
-                time: "08:00",
-                timeTaken: "2024-01-01T08:00:00Z",
-                taken: true,
-                qtyTaken: "1",
-                action: "Taken",
-                createdAt: "2024-01-01T08:00:00Z",
-                updatedAt: "2024-01-01T08:00:00Z"
-              };              
-
-              medSchedSchema.parse(medSchedDummyData);
-              // Define a function to get full name from user data
-              const getFullName = (user: { firstName: string, middleName: string, lastName: string }) => `${user.firstName} ${user.middleName} ${user.lastName}`;
+              const response = await fetch(
+                `${process.env.EXPO_PUBLIC_API_URL}med/user/${userId}`
+              );
   
-              // Create the HTML content using the dummy data
+              if (!response.ok) {
+                Alert.alert("Error", "Failed to fetch medications.");
+                return;
+              }
+  
+              const data = await response.json();
+  
+              if (data.length === 0) {
+                Alert.alert("No medications found", "Please add medications first.");
+                return;
+              }
+  
+              const fullName = `${data[0]?.user?.firstName || "N/A"} ${data[0]?.user?.middleName || ""} ${data[0]?.user?.lastName || "N/A"}`.trim();
+  
+              let medicationDetails = "";
+  
+              for (const med of data) {
+                console.log("Processing medication:", med);
+  
+                const { medId, name, description, instructions, dose, unit } = med;
+  
+                if (!medId) {
+                  console.error("Medication ID is missing or undefined:", med);
+                  continue;
+                }
+  
+                const instructionsArray = instructions?.split(", ") || [];
+                if (instructionsArray.length !== 4) {
+                  console.error("Invalid instruction format for medication:", med);
+                  continue;
+                }
+  
+                const [days, times, frequency, startDate] = instructionsArray;
+  
+                // Fetch all schedules for the current medication
+                const scheduleResponse = await fetch(
+                  `${process.env.EXPO_PUBLIC_API_URL}sched/med/${medId}`
+                );
+  
+                let schedules = [];
+                if (scheduleResponse.ok) {
+                  schedules = await scheduleResponse.json();
+                } else {
+                  console.error(`Failed to fetch schedules for medication: ${medId}`);
+                }
+  
+                const scheduleRows = schedules.length
+                  ? schedules
+                      .map((schedule) => {
+                        const scheduleDate = new Date(schedule.day).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          }
+                        );
+  
+                        const scheduleTime = new Date(`1970-01-01T${schedule.time || "00:00:00"}`).toLocaleTimeString(
+                          "en-US",
+                          {
+                            hour: "numeric",
+                            minute: "2-digit",
+                            hour12: true,
+                          }
+                        );
+  
+                        return `
+                          <tr>
+                            <td>${scheduleDate}</td>
+                            <td>${scheduleTime}</td>
+                            <td>${schedule.taken ? "Yes" : "No"}</td>
+                            <td>${schedule.action || "N/A"}</td>
+                          </tr>
+                        `;
+                      })
+                      .join("")
+                  : "<tr><td colspan='4'>No schedules available</td></tr>";
+  
+                medicationDetails += `
+                  <div class="section">
+                    <p><strong>Medication Name:</strong> ${name}</p>
+                    <p><strong>Description:</strong> ${description}</p>
+                    <p><strong>Instructions:</strong> Take ${dose} ${unit}, ${frequency}</p>
+                    <p>${times} times a day for ${days} days starting ${new Date(startDate).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}.</p>
+                    <h3>Schedule</h3>
+                    <table class="table">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Time</th>
+                          <th>Taken</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${scheduleRows}
+                      </tbody>
+                    </table>
+                  </div>`;
+              }
+  
               const htmlContent = `
-              <html>
-                <head>
-                  <style>
-                    body {
-                      font-family: Arial, sans-serif;
-                      margin: 0.75in; 
-                    }
-            
-                    h1 {
-                      font-size: 25px; /* Heading font size */
-                      text-align: center;
-                      
-                    }
-            
-                    h2 {
-                      font-size: 20px; /* Subheading font size */
-                    }
-            
-                    p {
-                      font-size: 16px; /* Content font size */
-                      margin-left: 15px
-                    }
-            
-                    table {
-                      width: 100%;
-                      border-collapse: collapse;
-                    }
-            
-                    th, td {
-                      padding: 8px;
-                      text-align: left;
-                      border: 1px solid #ddd;
-                      font-size: 16px; /* Table content font size */
-                    }
-            
-                    th {
-                      background-color: #f2f2f2;
-                    }
-                  </style>
-                </head>
-                <body>
-                  <h1>Medication Report</h1>
-                  <br/>
-                  <h2>Patient Information</h2>
-                  <p><strong>Patient Name:</strong> ${getFullName(medSchedDummyData.medicine.user)}</p>
-                  <br/>
-                  <h2>Medication Details</h2>
-                  <p><strong>Medication Name:</strong> ${medSchedDummyData.medicine.name}</p>
-                  <p><strong>Description:</strong> ${medSchedDummyData.medicine.description}</p>
-                  <p><strong>Instructions:</strong> ${medSchedDummyData.medicine.instructions}</p>
-                  <p><strong>Dosage:</strong> ${medSchedDummyData.medicine.dose}</p>
-
-                  <br/>
-                  <h2>Schedule</h2>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Time</th>
-                        <th>Taken</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>${medSchedDummyData.day}</td>
-                        <td>${medSchedDummyData.time}</td>
-                        <td>${medSchedDummyData.taken ? "Yes" : "No"}</td>
-                        <td>${medSchedDummyData.action}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </body>
-              </html>
-            `;            
+                <html>
+                  <head>
+                    <style>
+                      @page {
+                        size: Legal;
+                        margin: 0.75in;
+                      }
+                      body {
+                        font-family: Arial, sans-serif;
+                        margin: 0.75in;
+                      }
+                      h1, h2, h3 {
+                        text-align: center;
+                      }
+                      .section {
+                        margin-bottom: 20px;
+                      }
+                      .table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 10px;
+                      }
+                      .table th, .table td {
+                        border: 1px solid #ddd;
+                        padding: 8px;
+                        text-align: center;
+                      }
+                      .table th {
+                        background-color: #f2f2f2;
+                        font-weight: bold;
+                      }
+                    </style>
+                  </head>
+                  <body>
+                    <h1>Medication Report</h1>
+                    <div class="section">
+                      <h2>Patient Information</h2>
+                      <p><strong>Patient Name:</strong> ${fullName}</p>
+                    </div>
+                    <div class="section">
+                      <h2>All Medications</h2>
+                      ${medicationDetails}
+                    </div>
+                  </body>
+                </html>
+              `;
   
-              // Generate the PDF from the HTML content
-              const { uri } = await Print.printToFileAsync({
-                html: htmlContent,
-              });
+              const { uri } = await Print.printToFileAsync({ html: htmlContent });
+              const newUri = `${FileSystem.documentDirectory}${fullName}_Report.pdf`;
+              await FileSystem.moveAsync({ from: uri, to: newUri });
   
-              // Custom file name
-              const newFilename = generateFilename();
-              const newUri = FileSystem.documentDirectory + newFilename;
-  
-              // Move the file to the new location with the custom filename
-              await FileSystem.moveAsync({
-                from: uri,
-                to: newUri,
-              });
-  
-              // Save the new PDF URI to state
+              console.log("Report saved at:", newUri);
               setPdfUri(newUri);
-  
-              console.log("Report generated at:", newUri);
             } catch (error) {
               console.error("Error generating report:", error);
+              Alert.alert("Error", "Failed to generate the report.");
             }
           },
         },
       ]
     );
-  };  
-
+  };
+  
+  
+  
   // Function to open the PDF in the default viewer
   const openPdf = async () => {
     if (pdfUri) {
