@@ -17,7 +17,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MedicineSchema } from "@/validation/medicine";
 
 export default function HomeScreen() {
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    new Date().toISOString().split("T")[0]
+  );
   const [schedule, setSchedule] = useState<MedSchedSchema[]>([]);
   const [medications, setMedications] = useState<MedicineSchema[]>([]);
   const [userId, setUserId] = useState<number>(0);
@@ -41,46 +43,57 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
-    const fetchUserId = async () => {
-      const id = await AsyncStorage.getItem("userId");
-      let numberId = Number(id);
-      setUserId(numberId);
-    };
-    fetchUserId();
-  }, []);
+    const fetchData = async () => {
+      try {
+        const id = await AsyncStorage.getItem("userId");
+        const numberId = Number(id);
+        setUserId(numberId);
 
-  useEffect(() => {
-    const fetchMedications = async () => {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}med/user/${userId}`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setMedications(data);
-      }
-    };
-    fetchMedications();
-  }, [userId]);
+        if (numberId) {
+          const medResponse = await fetch(
+            `${process.env.EXPO_PUBLIC_API_URL}med/user/${numberId}`
+          );
+          if (!medResponse.ok) throw new Error("Failed to fetch medications");
+          const medsData = await medResponse.json();
+          setMedications(medsData);
 
-  useEffect(() => {
-    const fetchSchedules = async () => {
-      const allSchedules: MedSchedSchema[] = [];
-      for (const medication of medications) {
-        const response = await fetch(
-          `${process.env.EXPO_PUBLIC_API_URL}sched/med/${medication.medId}`
-        );
-        if (response.ok) {
-          const data = await response.json();
-          allSchedules.push(...data);
+          const allSchedules: MedSchedSchema[] = [];
+          for (const medication of medsData) {
+            const schedResponse = await fetch(
+              `${process.env.EXPO_PUBLIC_API_URL}sched/med/${medication.medId}`
+            );
+            if (!schedResponse.ok) throw new Error("Failed to fetch schedules");
+            const schedData = await schedResponse.json();
+            allSchedules.push(...schedData);
+          }
+          setSchedules(allSchedules);
+
+          // If there's a selected date, update the current schedule view
+          if (selectedDate) {
+            const filteredSchedules = allSchedules.filter(
+              (sched) => sched.day === selectedDate
+            );
+            setSchedule(filteredSchedules);
+          }
         }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        // You might want to add some error state handling here
       }
-      setSchedules(allSchedules);
     };
 
-    if (medications.length > 0) {
-      fetchSchedules();
+    fetchData();
+  }, [selectedDate]); // Only re-run when selectedDate changes
+
+  // Update schedule whenever schedules array changes
+  useEffect(() => {
+    if (selectedDate) {
+      const filteredSchedules = schedules.filter(
+        (sched) => sched.day === selectedDate
+      );
+      setSchedule(filteredSchedules);
     }
-  }, [medications]);
+  }, [schedules, selectedDate]);
 
   const markAs = (
     id: number,
@@ -181,6 +194,7 @@ export default function HomeScreen() {
                     - {item.medicine?.dose} {item.medicine?.unit}
                   </Text>
                   <Text style={styles.medicationTime}>
+                    {item.time}
                     Time:{" "}
                     {new Date(`1970-01-01T${item.time}`).toLocaleTimeString(
                       "en-US",

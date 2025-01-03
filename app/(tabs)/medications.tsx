@@ -111,15 +111,24 @@ export default function MedicationTab() {
   });
 
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
-  const [selectedMedication, setSelectedMedication] = useState<MedicineSchema & { scheduleData?: typeof scheduleFormData } | null>(null);
+  const [selectedMedication, setSelectedMedication] =
+    useState<MedicineSchema | null>(null);
 
-  const toggleDetailsModal = (medication: MedicineSchema, scheduleData: typeof scheduleFormData) => {
-    console.log("Toggle Details Modal", medication, scheduleData); // Check values here
-    setSelectedMedication({ ...medication, scheduleData });
+  const toggleDetailsModal = (medication: MedicineSchema) => {
+    setSelectedMedication({ ...medication });
+    handleFetchSchedules(medication.medId ?? 0);
     setDetailsModalVisible(!detailsModalVisible);
   };
-  
-  
+
+  const handleFetchSchedules = async (medId: number) => {
+    const response = await fetch(
+      `${process.env.EXPO_PUBLIC_API_URL}sched/med/${medId}`
+    );
+    if (response.ok) {
+      const data = await response.json();
+      setSchedules(data);
+    }
+  };
   const handleSearch = (text: string) => {
     if (text.trim() === "") {
       setFilteredMedications(medications);
@@ -209,8 +218,8 @@ export default function MedicationTab() {
     }
   };
 
-  const [interval, setInterval] = useState<number | null>(null); 
-  const [startTime, setStartTime] = useState<string | null>(null); 
+  const [interval, setInterval] = useState<number | null>(null);
+  const [startTime, setStartTime] = useState<string | null>(null);
 
   const handleAddMedication = async () => {
     try {
@@ -294,9 +303,18 @@ export default function MedicationTab() {
         for (const time of dailyTimeslots) {
           try {
             // Parse the time string
-            const [hours, minutes] = time.split(":");
-            const hour = parseInt(hours, 10);
+            // Parse time string (e.g., "11:22 AM")
+            const [timeStr, period] = time.split(" ");
+            const [hours, minutes] = timeStr.split(":");
+            let hour = parseInt(hours, 10);
             const minute = parseInt(minutes, 10);
+
+            // Convert to 24-hour format
+            if (period === "PM" && hour !== 12) {
+              hour += 12;
+            } else if (period === "AM" && hour === 12) {
+              hour = 0;
+            }
 
             // Create schedule date
             const scheduleDate = new Date(currentDate);
@@ -304,7 +322,6 @@ export default function MedicationTab() {
             const formattedTime = `${hour.toString().padStart(2, "0")}:${minute
               .toString()
               .padStart(2, "0")}`;
-            console.log(scheduleDate.toISOString().split("T")[0]);
 
             const scheduleData = medSchedSchema.parse({
               medId: medId,
@@ -455,7 +472,7 @@ export default function MedicationTab() {
   };
 
   return (
-    <View style={{ height: "100%", backgroundColor: "#fff", paddingBottom: 100 }}>
+    <View style={{ height: "100%", backgroundColor: "#fff" }}>
       <FlatList
         ListHeaderComponent={
           <View style={styles.container}>
@@ -1052,61 +1069,64 @@ export default function MedicationTab() {
         data={filteredMedications}
         keyExtractor={(item) => item.medId?.toString() ?? ""}
         renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => toggleDetailsModal(item, scheduleFormData)} activeOpacity={0.7}>
-          <View style={styles.medicationItem}>
-            <View style={styles.medicationDetails}>
-              <Text style={styles.medicationText}>{item.name}</Text>
-              <Text style={[styles.timeSlotsText, { color: "black" }]}>
-                {item.dose} {item.unit}, {item.instructions.split(", ")[0]}{" "}
-                times a day for {item.instructions.split(", ")[1]} days
-              </Text>
-              <Text style={styles.timeSlotsText}>
-                <Text style={{ marginRight: 2 }}>Stock: </Text>
-                {item.currentQty} {item.unit}
-              </Text>
-            </View>
-            <View style={[styles.actionButtons, { padding: 2 }]}>
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  styles.deleteButton,
-                  { borderRadius: 8, backgroundColor: "#BC2C1A" },
-                ]}
-                onPress={() => handleDeleteMedication(item.medId ?? 0)}
-              >
-                <Text style={styles.actionButtonText}>
-                  <MaterialCommunityIcons
-                    name="trash-can"
-                    size={15}
-                    color="white"
-                  />{" "}
-                  Delete
+          <TouchableOpacity
+            onPress={() => toggleDetailsModal(item)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.medicationItem}>
+              <View style={styles.medicationDetails}>
+                <Text style={styles.medicationText}>{item.name}</Text>
+                <Text style={[styles.timeSlotsText, { color: "black" }]}>
+                  {item.dose} {item.unit}, {item.instructions.split(", ")[0]}{" "}
+                  times a day for {item.instructions.split(", ")[1]} days
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  styles.editButton,
-                  {
-                    borderRadius: 8,
-                    backgroundColor: "#465293",
-                  },
-                ]}
-                onPress={() => handleEditMedication(item.medId ?? 0)}
-              >
-                <Text style={styles.actionButtonText}>
-                  <Text>
+                <Text style={styles.timeSlotsText}>
+                  <Text style={{ marginRight: 2 }}>Stock: </Text>
+                  {item.currentQty} {item.unit}
+                </Text>
+              </View>
+              <View style={[styles.actionButtons, { padding: 2 }]}>
+                <TouchableOpacity
+                  style={[
+                    styles.actionButton,
+                    styles.deleteButton,
+                    { borderRadius: 8, backgroundColor: "#BC2C1A" },
+                  ]}
+                  onPress={() => handleDeleteMedication(item.medId ?? 0)}
+                >
+                  <Text style={styles.actionButtonText}>
                     <MaterialCommunityIcons
-                      name="pencil"
+                      name="trash-can"
                       size={15}
                       color="white"
-                    />
-                  </Text>{" "}
-                  Edit
-                </Text>
-              </TouchableOpacity>
+                    />{" "}
+                    Delete
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.actionButton,
+                    styles.editButton,
+                    {
+                      borderRadius: 8,
+                      backgroundColor: "#465293",
+                    },
+                  ]}
+                  onPress={() => handleEditMedication(item.medId ?? 0)}
+                >
+                  <Text style={styles.actionButtonText}>
+                    <Text>
+                      <MaterialCommunityIcons
+                        name="pencil"
+                        size={15}
+                        color="white"
+                      />
+                    </Text>{" "}
+                    Edit
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
           </TouchableOpacity>
         )}
         ListEmptyComponent={
@@ -1121,67 +1141,93 @@ export default function MedicationTab() {
         onRequestClose={() => setDetailsModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { width: "100%" }]}>
             {selectedMedication && (
               <>
                 <View style={styles.table}>
-                  <Text style={styles.modalTitle}>{selectedMedication?.name}</Text>
+                  <Text style={styles.modalTitle}>
+                    {selectedMedication?.name}
+                  </Text>
 
                   <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Description:</Text>
-                    <Text style={styles.tableValue}>{selectedMedication?.description}</Text>
+                    <Text style={styles.tableLabel}>Description: </Text>
+                    <Text style={styles.tableValue}>
+                      {selectedMedication?.description}
+                    </Text>
                   </View>
 
                   <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Dose:</Text>
-                    <Text style={styles.tableValue}>{selectedMedication?.dose} {selectedMedication?.unit}</Text>
+                    <Text style={styles.tableLabel}>Dose: </Text>
+                    <Text style={styles.tableValue}>
+                      {selectedMedication?.dose} {selectedMedication?.unit}
+                    </Text>
                   </View>
 
                   <View style={styles.tableRow}>
                     <Text style={styles.tableLabel}>Instructions:</Text>
                     <Text style={styles.tableValue}>
-                      {selectedMedication?.instructions.split(", ")[0]} times a day for {selectedMedication?.instructions.split(", ")[1]} days
+                      {selectedMedication?.instructions.split(", ")[0]} times a
+                      day for {selectedMedication?.instructions.split(", ")[1]}{" "}
+                      days
                     </Text>
                   </View>
 
                   <View style={styles.tableRow}>
                     <Text style={styles.tableLabel}></Text>
                     <Text style={styles.tableValue}>
-                      {selectedMedication.instructions.split(", ")[2]} starting {selectedMedication.instructions.split(", ")[3]}
+                      {selectedMedication.instructions.split(", ")[2]} starting{" "}
+                      {new Date(
+                        selectedMedication.instructions.split(", ")[3]
+                      ).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
                     </Text>
                   </View>
 
                   <View style={styles.tableRow}>
                     <Text style={styles.tableLabel}>Time Slot:</Text>
-                    {selectedMedication?.scheduleData?.isEveryHours ? (
-                      <Text style={styles.tableValue}>
-                        Every {interval} hours starting {startTime}
-                      </Text>
-                    ) : (
-                      <View style={styles.tableValue}>
-                        {selectedMedication?.scheduleData?.timeSlots &&
-                          selectedMedication.scheduleData.timeSlots.split(", ").map((slot, index) => (
-                            <Text key={index} style={styles.tableValueText}>
-                              {slot}
-                            </Text>
-                          ))}
-                      </View>
-                    )}
+
+                    <View style={styles.tableValue}>
+                      {schedules
+                        .slice(
+                          0,
+                          Number(selectedMedication.instructions.split(", ")[1])
+                        )
+                        .map((schedule) => (
+                          <Text key={schedule.schedId}>
+                            {new Date(
+                              `1970-01-01T${schedule.time}`
+                            ).toLocaleTimeString("en-US", {
+                              hour: "numeric",
+                              minute: "2-digit",
+                              hour12: true,
+                            })}
+                          </Text>
+                        ))}
+                    </View>
                   </View>
 
                   <View style={styles.tableRow}>
                     <Text style={styles.tableLabel}>Required Qty:</Text>
-                    <Text style={styles.tableValue}>{selectedMedication?.requiredQty}</Text>
+                    <Text style={styles.tableValue}>
+                      {selectedMedication?.requiredQty}
+                    </Text>
                   </View>
 
                   <View style={styles.tableRow}>
                     <Text style={styles.tableLabel}>Current Qty:</Text>
-                    <Text style={styles.tableValue}>{selectedMedication?.currentQty}</Text>
+                    <Text style={styles.tableValue}>
+                      {selectedMedication?.currentQty}
+                    </Text>
                   </View>
 
                   <View style={styles.tableRow}>
                     <Text style={styles.tableLabel}>Notification:</Text>
-                    <Text style={styles.tableValue}>{selectedMedication?.notificationType}</Text>
+                    <Text style={styles.tableValue}>
+                      {selectedMedication?.notificationType}
+                    </Text>
                   </View>
                 </View>
                 <TouchableOpacity
@@ -1195,7 +1241,6 @@ export default function MedicationTab() {
           </View>
         </View>
       </Modal>
-
     </View>
   );
 }
@@ -1220,7 +1265,6 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     padding: 16,
-    paddingBottom: 80,
   },
   searchIcon: {
     marginRight: 10,
@@ -1458,7 +1502,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalTitle: {
-    fontSize: width*0.06,
+    fontSize: width * 0.06,
     fontWeight: "bold",
     marginBottom: 15,
     textAlign: "center",
@@ -1498,7 +1542,7 @@ const styles = StyleSheet.create({
     color: "white",
     textAlign: "center",
     fontWeight: 600,
-    fontSize: width*0.04,
+    fontSize: width * 0.04,
   },
   table: {
     padding: 15,
@@ -1529,7 +1573,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#555",
     flex: 2,
-    textAlign: "left", 
+    textAlign: "left",
   },
   tableValueText: {
     fontSize: 16,
