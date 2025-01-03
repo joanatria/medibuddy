@@ -214,7 +214,7 @@ const HomeScreen = () => {
   ) => {
     Notifications.scheduleNotificationAsync({
       content: {
-        title: `Reminder: ${medicine}💊!`,
+        title: `💊Reminder: ${medicine}!`,
         body: `🕒 ${timeInfo} it's time to take ${qty} ${unit} of ${medicine}. 🩺 Remember, your health matters! 🌟`,
         data: { customData: { medicine, qty, unit } }, // Add custom data if needed
         priority: "high", // Ensure the notification appears prominently
@@ -251,7 +251,7 @@ const HomeScreen = () => {
       } else if (missedAction === "take") {
         // First mark as missed with actual time
         const missedResponse = await fetch(
-          `${process.env.EXPO_PUBLIC_API_URL}sched/check-taken/${selectedSchedule.schedId}/${userId}?isTaken=false&action=Missed actual time: Dose taken`,
+          `${process.env.EXPO_PUBLIC_API_URL}sched/check-taken/${selectedSchedule.schedId}/${userId}?isTaken=false&action=Missed actual time - Dose taken`,
           {
             method: "PUT",
           }
@@ -631,7 +631,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ddd",
     position: "relative",
-  },  
+  },
   medicationDetails: {
     paddingBottom: 15,
   },

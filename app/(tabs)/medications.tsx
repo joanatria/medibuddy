@@ -19,13 +19,14 @@ import Checkbox from "expo-checkbox";
 import { medicineSchema, MedicineSchema } from "@/validation/medicine";
 import { medSchedSchema, MedSchedSchema } from "@/validation/schedule";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { z } from "zod";
+import { set, z } from "zod";
 import { useLocalSearchParams } from "expo-router";
 import {
   Ionicons,
   MaterialCommunityIcons,
   MaterialIcons,
 } from "@expo/vector-icons";
+import ScheduleModal from "@/components/Schedule";
 
 interface Attachment {
   uri: string;
@@ -43,6 +44,7 @@ export default function MedicationTab() {
   >([]);
   const [schedules, setSchedules] = useState<MedSchedSchema[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
   const [timeEditId, setTimeEditId] = useState<number | null>(null);
   const [userId, setUserId] = useState<number>(0);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -52,6 +54,11 @@ export default function MedicationTab() {
   const [typeDropdown, setTypeDropdown] = useState(false);
   const [dayPickerOpen, setDayPickerOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [medicationToDelete, setMedicationToDelete] = useState<number | null>(
+    null
+  );
+  const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -192,29 +199,87 @@ export default function MedicationTab() {
     }
   };
 
-  const handleDeleteMedication = (id: number) => {
-    Alert.alert("Success", "Medication deleted successfully!");
+  const handleDeleteMedication = async (id: number) => {
+    try {
+      for (const schedule of schedules) {
+        const deleteSchedResponse = await fetch(
+          `${process.env.EXPO_PUBLIC_API_URL}sched/delete/${schedule.schedId}`,
+          {
+            method: "DELETE",
+          }
+        );
+        if (!deleteSchedResponse.ok) {
+          throw new Error(`Failed to delete schedule ${schedule.schedId}`);
+        }
+      }
+
+      const deleteMedResponse = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}med/delete/${id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!deleteMedResponse.ok) {
+        throw new Error("Failed to delete medication");
+      }
+
+      Alert.alert(
+        "Success",
+        "Medication and all schedules deleted successfully!"
+      );
+      fetchMedications();
+    } catch (error) {
+      Alert.alert("Error", (error as Error).message);
+    }
   };
 
-  const handleEditMedication = (id: number) => {
-    const medication = medications.find((med) => med.medId ?? 0);
-    if (medication) {
-      setMedicationFormData({
-        name: medication.name,
-        userId: medication.userId,
-        description: medication.description,
-        instructions: medication.instructions,
-        dose: medication.dose,
-        requiredQty: medication.requiredQty,
-        initialQty: medication.initialQty,
-        currentQty: medication.currentQty,
-        unit: medication.unit,
-        notificationType: medication.notificationType,
-        notifDetails: medication.notifDetails,
-        attachments: medication.attachments ?? "",
-        fileType: medication.fileType ?? "",
-        files: medication.files ?? [],
+  const confirmDeleteMedication = (id: number) => {
+    setMedicationToDelete(id);
+    handleFetchSchedules(id);
+    setDeleteModalVisible(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (medicationToDelete !== null) {
+      handleDeleteMedication(medicationToDelete);
+      setDeleteModalVisible(false);
+      setMedicationToDelete(null);
+    }
+  };
+
+  const handleEditMedication = async (id: number) => {
+    try {
+      const validatedData = medicineSchema.parse({
+        ...medicationFormData,
+        userId: userId,
       });
+
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}med/${id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(validatedData),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Update failed");
+      }
+
+      Alert.alert("Success", "Medication updated successfully!");
+      fetchMedications();
+      setEditModalVisible(false);
+    } catch (e) {
+      if (e instanceof z.ZodError) {
+        Alert.alert("Error", e.errors.map((error) => error.message).join("\n"));
+      } else {
+        Alert.alert("Error", (e as Error).message);
+      }
     }
   };
 
@@ -469,6 +534,33 @@ export default function MedicationTab() {
 
   const hideDateCustomPicker = () => {
     setCustomTimeShow(false);
+  };
+
+  useEffect(() => {
+    if (editModalVisible && selectedMedication) {
+      setMedicationFormData({
+        medId: selectedMedication.medId || 0,
+        userId: userId,
+        name: selectedMedication.name || "",
+        description: selectedMedication.description || "",
+        initialQty: selectedMedication.initialQty?.toString() || "",
+        currentQty: selectedMedication.currentQty?.toString() || "",
+        requiredQty: selectedMedication.requiredQty?.toString() || "",
+        unit: selectedMedication.unit || "",
+        dose: selectedMedication.dose?.toString() || "",
+        instructions: selectedMedication.instructions || ", , ,", // Default instructions if not available
+        notificationType: selectedMedication.notificationType || "mobile",
+        notifDetails: selectedMedication.notifDetails || "",
+        attachments: selectedMedication.attachments || "",
+        fileType: selectedMedication.fileType || "",
+        files: selectedMedication.files || [],
+      });
+    }
+  }, [editModalVisible, selectedMedication]);
+
+  const handleEditSchedules = (medId: number) => {
+    handleFetchSchedules(medId);
+    setScheduleModalVisible(true);
   };
 
   return (
@@ -1006,25 +1098,6 @@ export default function MedicationTab() {
                           </View>
                         </View>
 
-                        {/* <View style={styles.formGroup}>
-              <Text style={styles.label}>Doctor Instructions</Text>
-              <TouchableOpacity
-                style={styles.attachmentGroup}
-                onPress={handleAttachRecording}
-              >
-                <Text style={styles.attachmentText}>
-                  {medicationFormData.files
-                    ? "Replace Recording"
-                    : "Attach Recording"}
-                </Text>
-              </TouchableOpacity>
-              {medicationFormData.files && (
-                <Text style={styles.attachmentText}>
-                  Attached: {medicationFormData.attachments}
-                </Text>
-              )}
-            </View> */}
-
                         <View
                           style={[
                             styles.buttonContainer,
@@ -1092,7 +1165,7 @@ export default function MedicationTab() {
                     styles.deleteButton,
                     { borderRadius: 8, backgroundColor: "#BC2C1A" },
                   ]}
-                  onPress={() => handleDeleteMedication(item.medId ?? 0)}
+                  onPress={() => confirmDeleteMedication(item.medId ?? 0)}
                 >
                   <Text style={styles.actionButtonText}>
                     <MaterialCommunityIcons
@@ -1112,7 +1185,10 @@ export default function MedicationTab() {
                       backgroundColor: "#465293",
                     },
                   ]}
-                  onPress={() => handleEditMedication(item.medId ?? 0)}
+                  onPress={() => {
+                    setEditModalVisible(true);
+                    setSelectedMedication(item);
+                  }}
                 >
                   <Text style={styles.actionButtonText}>
                     <Text>
@@ -1133,6 +1209,409 @@ export default function MedicationTab() {
           <Text style={styles.noDataText}>No medications added yet.</Text>
         }
       />
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={editModalVisible}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <FlatList
+              ListHeaderComponent={
+                <View>
+                  <Text style={styles.modalTitle}>Edit Medication</Text>
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Medication Name</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter medication name"
+                      placeholderTextColor="#5A5A5A"
+                      value={medicationFormData.name}
+                      onChangeText={(text) => handleInputChange("name", text)}
+                    />
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Description</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter description"
+                      placeholderTextColor="#5A5A5A"
+                      value={medicationFormData.description}
+                      onChangeText={(text) =>
+                        handleInputChange("description", text)
+                      }
+                    />
+                  </View>
+
+                  <View style={styles.timeInputContainer}>
+                    <View style={[styles.formGroup, { flex: 1 }]}>
+                      <Text style={[styles.label, { marginBottom: 7 }]}>
+                        Quantity
+                      </Text>
+                      <TextInput
+                        style={[styles.input, { padding: 13 }]}
+                        placeholder="e.g., 30"
+                        placeholderTextColor="#5A5A5A"
+                        value={medicationFormData.initialQty}
+                        onChangeText={(text) =>
+                          handleInputChange(
+                            "currentQty",
+                            text.replace(/[^0-9]/g, "")
+                          )
+                        }
+                        keyboardType="numeric"
+                      />
+                    </View>
+
+                    <View
+                      style={[styles.formGroup, { flex: 1, marginLeft: 10 }]}
+                    >
+                      <Text style={styles.label}>Unit</Text>
+                      <DropDownPicker
+                        open={dropdownOpen}
+                        value={medicationFormData.unit}
+                        items={[
+                          { label: "mL", value: "mL" },
+                          { label: "piece/s", value: "piece/s" },
+                        ]}
+                        setOpen={setDropdownOpen}
+                        setValue={(callback) => {
+                          const value = callback(medicationFormData.unit);
+                          handleInputChange("unit", value);
+                        }}
+                        setItems={() => {}}
+                        containerStyle={styles.dropdownContainer}
+                        style={styles.dropdown}
+                        dropDownContainerStyle={styles.dropdownList}
+                        textStyle={styles.dropdownText}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={[]}>
+                    <Text style={styles.label}>Dosage</Text>
+
+                    <View
+                      style={[
+                        styles.borderedBox,
+                        { flexDirection: "row", alignItems: "center" },
+                      ]}
+                    >
+                      <TextInput
+                        style={styles.underlinedInput}
+                        placeholder="e.g., 10"
+                        placeholderTextColor="#5A5A5A"
+                        value={medicationFormData.dose}
+                        onChangeText={(text) =>
+                          handleInputChange("dose", text.replace(/[^0-9]/g, ""))
+                        }
+                        keyboardType="numeric"
+                      />
+                      <TextInput
+                        style={[
+                          styles.label,
+                          {
+                            width: "auto",
+                            fontSize: 15,
+                            fontWeight: "400",
+                            marginTop: 2,
+                          },
+                        ]}
+                        value={medicationFormData.unit}
+                        editable={false}
+                      />
+                      <Text
+                        style={[
+                          styles.label,
+                          {
+                            fontSize: 15,
+                            fontWeight: "400",
+                            marginTop: 2,
+                            marginLeft: 3,
+                          },
+                        ]}
+                      >
+                        per take
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.timeInputContainer}>
+                    <View style={[styles.formGroup, { flex: 1 }]}>
+                      <Text style={[styles.label, { marginBottom: 7 }]}>
+                        Instructions
+                      </Text>
+                      <View
+                        style={[
+                          styles.borderedBox,
+                          { flexDirection: "row", alignItems: "center" },
+                        ]}
+                      >
+                        <TextInput
+                          style={styles.underlinedInput}
+                          placeholder="e.g., 3"
+                          placeholderTextColor="#5A5A5A"
+                          value={medicationFormData.instructions.split(", ")[0]}
+                          onChangeText={(text) =>
+                            handleInputChange(
+                              "instructions",
+                              `${text.replace(/[^0-9]/g, "")}, ${
+                                medicationFormData.instructions.split(
+                                  ", "
+                                )[1] || ""
+                              }, ${
+                                medicationFormData.instructions.split(
+                                  ", "
+                                )[2] || ""
+                              }`
+                            )
+                          }
+                          keyboardType="numeric"
+                          onBlur={generateTimeSlots}
+                        />
+                        <Text
+                          style={[
+                            styles.label,
+                            {
+                              fontSize: 15,
+                              fontWeight: "400",
+                              marginTop: 2,
+                            },
+                          ]}
+                        >
+                          times a day for
+                        </Text>
+                        <TextInput
+                          style={styles.underlinedInput}
+                          placeholder="0"
+                          placeholderTextColor="#5A5A5A"
+                          value={medicationFormData.instructions.split(", ")[1]}
+                          onChangeText={(text) =>
+                            handleInputChange(
+                              "instructions",
+                              `${
+                                medicationFormData.instructions.split(
+                                  ", "
+                                )[0] || ""
+                              }, ${text.replace(/[^0-9]/g, "")}, ${
+                                medicationFormData.instructions.split(
+                                  ", "
+                                )[2] || ""
+                              }`
+                            )
+                          }
+                          keyboardType="numeric"
+                        />
+                        <Text
+                          style={[
+                            styles.label,
+                            {
+                              fontSize: 15,
+                              fontWeight: "400",
+                              marginTop: 2,
+                            },
+                          ]}
+                        >
+                          days
+                        </Text>
+                      </View>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          gap: 5,
+                          maxWidth: "100%",
+                        }}
+                      >
+                        <DropDownPicker
+                          open={dayPickerOpen}
+                          placeholder="Select frequency"
+                          value={medicationFormData.instructions.split(", ")[2]}
+                          items={[
+                            { label: "Daily", value: "Daily" },
+                            {
+                              label: "Every other day",
+                              value: "Every other day",
+                            },
+                          ]}
+                          setOpen={setDayPickerOpen}
+                          setValue={(callback) => {
+                            const value = callback(
+                              medicationFormData.instructions.split(", ")[2]
+                            );
+                            handleInputChange(
+                              "instructions",
+                              `${
+                                medicationFormData.instructions.split(
+                                  ", "
+                                )[0] || ""
+                              }, ${
+                                medicationFormData.instructions.split(
+                                  ", "
+                                )[1] || ""
+                              }, ${value}`
+                            );
+                          }}
+                          setItems={() => {}}
+                          containerStyle={[
+                            styles.dropdownContainer,
+                            { width: "50%" },
+                          ]}
+                          style={styles.dropdown}
+                          dropDownContainerStyle={styles.dropdownList}
+                          textStyle={styles.dropdownText}
+                        />
+                        <TouchableOpacity
+                          style={styles.timeInputContainer}
+                          onPress={() => setShowDatePicker(true)}
+                        >
+                          <View
+                            style={[
+                              styles.borderedBox,
+                              { width: "69.5%", padding: 14 },
+                            ]}
+                          >
+                            <Text style={styles.timeInput}>
+                              {medicationFormData.instructions.split(", ")[3]
+                                ? new Date(
+                                    medicationFormData.instructions.split(
+                                      ", "
+                                    )[3]
+                                  ).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                  })
+                                : new Date().toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                  })}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                        <DateTimePickerModal
+                          isVisible={showDatePicker}
+                          mode="date"
+                          onConfirm={(date) => handleDateChange(null, date)}
+                          onCancel={() => setShowDatePicker(false)}
+                        />
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Reminder Type</Text>
+                    <DropDownPicker
+                      open={typeDropdown}
+                      value={medicationFormData.notificationType}
+                      items={[
+                        { label: "Email", value: "email" },
+                        { label: "Mobile Notification", value: "mobile" },
+                        { label: "Both", value: "both" },
+                      ]}
+                      setOpen={setTypeDropdown}
+                      setValue={(callback) => {
+                        const value = callback(
+                          medicationFormData.notificationType
+                        );
+                        handleInputChange("notificationType", value);
+                      }}
+                      setItems={() => {}}
+                      containerStyle={styles.dropdownContainer}
+                      style={styles.dropdown}
+                      dropDownContainerStyle={styles.dropdownList}
+                      textStyle={styles.dropdownText}
+                    />
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Reminder Options</Text>
+                    <View>
+                      {[
+                        "10 minutes before",
+                        "5 minutes before",
+                        "Exact time",
+                      ].map((option) => (
+                        <TouchableOpacity
+                          key={option}
+                          style={styles.checkboxContainer}
+                          onPress={() => handleCheckboxChange(option)}
+                        >
+                          <Checkbox
+                            style={styles.checkbox}
+                            value={medicationFormData.notifDetails.includes(
+                              option
+                            )}
+                            onValueChange={() => handleCheckboxChange(option)}
+                          />
+                          <Text style={styles.checkboxText}>{option}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.addButton,
+                      ,
+                      {
+                        backgroundColor: "blue",
+                        width: "96%",
+                        marginHorizontal: 5,
+                        justifyContent: "center",
+                      },
+                    ]}
+                    onPress={() =>
+                      handleEditSchedules(selectedMedication?.medId ?? 1)
+                    }
+                  >
+                    <Text style={[styles.buttonText]}>Edit Schedules</Text>
+                  </TouchableOpacity>
+                  <View
+                    style={[
+                      styles.buttonContainer,
+                      { marginBottom: 5, marginTop: 10, gap: 5 },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      style={[
+                        styles.clearButton,
+                        {
+                          backgroundColor: "#FF5C5C",
+                          padding: 10,
+                          borderRadius: 5,
+                        },
+                      ]}
+                      onPress={() => {
+                        clearForm;
+                        setEditModalVisible(false);
+                      }}
+                    >
+                      <Text style={styles.buttonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.addButton,
+                        ,
+                        { backgroundColor: "#4EBC85" },
+                      ]}
+                      onPress={() =>
+                        handleEditMedication(selectedMedication?.medId ?? 1)
+                      }
+                    >
+                      <Text style={[styles.buttonText]}>Update</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              }
+              data={[]} // Empty data array since we're only using the header
+              renderItem={null}
+              scrollEnabled={true}
+            />
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         animationType="slide"
@@ -1241,6 +1720,48 @@ export default function MedicationTab() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={deleteModalVisible}
+        onRequestClose={() => setDeleteModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Confirm Deletion</Text>
+            <Text style={styles.modalText}>
+              Are you sure you want to delete this medication? This action
+              cannot be undone.
+            </Text>
+            <View
+              style={[
+                styles.modalButtonContainer,
+                { justifyContent: "flex-end" },
+              ]}
+            >
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: "#FF5C5C" }]}
+                onPress={() => setDeleteModalVisible(false)}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: "#4EBC85" }]}
+                onPress={handleConfirmDelete}
+              >
+                <Text style={styles.modalButtonText}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <ScheduleModal
+        schedules={schedules}
+        setSchedules={setSchedules}
+        visible={scheduleModalVisible}
+        onClose={() => setScheduleModalVisible(false)}
+      />
     </View>
   );
 }
