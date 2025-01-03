@@ -61,19 +61,22 @@ export default function MedicationTab() {
     fetchUserId();
   }, []);
 
+  const fetchMedications = async () => {
+    const response = await fetch(
+      `${process.env.EXPO_PUBLIC_API_URL}med/user/${userId}`
+    );
+    if (response.ok) {
+      const data = await response.json();
+      setMedications(data);
+      setFilteredMedications(data);
+    }
+  };
+
   useEffect(() => {
-    const fetchMedications = async () => {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}med/user/${userId}`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setMedications(data);
-        setFilteredMedications(data);
-      }
-    };
-    fetchMedications();
-  }, [userId]);
+    if (!modalVisible) {
+      fetchMedications();
+    }
+  }, [userId, modalVisible]);
 
   const [medicationFormData, setMedicationFormData] = useState<MedicineSchema>({
     name: "",
@@ -262,7 +265,6 @@ export default function MedicationTab() {
         const errorData = await response.json();
         throw new Error(errorData.message || "Registration failed");
       }
-      Alert.alert("Success", "Medication and schedule added successfully!");
 
       const medicationData = await response.json();
       const medId = medicationData.medId;
@@ -313,6 +315,8 @@ export default function MedicationTab() {
         }
         currentDay.setDate(currentDay.getDate() + daysToAdd);
       }
+      Alert.alert("Success", "Medication and schedule added successfully!");
+      clearForm();
     } catch (e) {
       if (e instanceof z.ZodError) {
         Alert.alert("Error", e.errors.map((error) => error.message).join("\n"));
@@ -958,21 +962,9 @@ export default function MedicationTab() {
                     <View
                       style={[
                         styles.buttonContainer,
-                        { marginBottom: 10, marginTop: 10 },
+                        { marginBottom: 5, marginTop: 10, gap: 5 },
                       ]}
                     >
-                      <TouchableOpacity
-                        style={[
-                          styles.addButton,
-                          ,
-                          { backgroundColor: "#4EBC85" },
-                        ]}
-                        onPress={handleAddMedication}
-                      >
-                        <Text style={[styles.buttonText]}>
-                          {editingId ? "Update Medication" : "Add Medication"}
-                        </Text>
-                      </TouchableOpacity>
                       <TouchableOpacity
                         style={[
                           styles.clearButton,
@@ -985,6 +977,16 @@ export default function MedicationTab() {
                         onPress={clearForm}
                       >
                         <Text style={styles.buttonText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.addButton,
+                          ,
+                          { backgroundColor: "#4EBC85" },
+                        ]}
+                        onPress={handleAddMedication}
+                      >
+                        <Text style={[styles.buttonText]}>Save</Text>
                       </TouchableOpacity>
                     </View>
                   </ScrollView>

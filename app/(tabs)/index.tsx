@@ -1,82 +1,118 @@
-import { useState } from 'react';
-import { StyleSheet, FlatList, View, Text, TouchableOpacity, Alert, Dimensions, TextInput } from 'react-native';
-import { Calendar } from 'react-native-calendars';
-import { ThemedView } from '@/components/ThemedView';
-
+import { useEffect, useState } from "react";
+import {
+  StyleSheet,
+  FlatList,
+  View,
+  Text,
+  TouchableOpacity,
+  Alert,
+  Dimensions,
+  TextInput,
+} from "react-native";
+import { Calendar } from "react-native-calendars";
+import { ThemedView } from "@/components/ThemedView";
+import { MedSchedSchema } from "@/validation/schedule";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { MedicineSchema } from "@/validation/medicine";
 
 export default function HomeScreen() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [medications, setMedications] = useState<Medication[]>([]);
-
-  type Medication = {
-    id: string;
-    name: string;
-    dosage: string;
-    time: string;
-    status: 'Taken' | 'Missed' | null;
-    notified: boolean; // Track if notified about the missed dose
-    quantityTaken: string | null;
-    timeTaken: string | null;
-  };
-
-  type MedicationsByDate = {
-    [date: string]: Medication[];
-  };
-
-  const sampleMedications: MedicationsByDate = {
-    '2024-12-06': [
-      { id: '1', name: 'Aspirin', dosage: '1 tablet', time: '8:00 AM', status: null, notified: false, quantityTaken: null, timeTaken: null },
-      { id: '2', name: 'Vitamin D', dosage: '2 capsules', time: '12:00 PM', status: null, notified: false, quantityTaken: null, timeTaken: null },
-    ],
-    '2024-12-07': [
-      { id: '3', name: 'Metformin', dosage: '500mg', time: '8:00 AM', status: null, notified: false, quantityTaken: null, timeTaken: null },
-    ],
-  };
+  const [schedule, setSchedule] = useState<MedSchedSchema[]>([]);
+  const [medications, setMedications] = useState<MedicineSchema[]>([]);
+  const [userId, setUserId] = useState<number>(0);
+  const [schedules, setSchedules] = useState<MedSchedSchema[]>([]);
 
   const onDateSelect = (day: { dateString: string }) => {
     setSelectedDate(day.dateString);
-    setMedications(sampleMedications[day.dateString] || []);
+    const filteredSchedules = schedules.filter(
+      (sched) => sched.day === day.dateString
+    );
+    setSchedule(filteredSchedules);
   };
 
-  const markAs = (id: string, status: 'Taken' | 'Missed', quantity: string | null, timeTaken: string | null) => {
-    setMedications((prevMedications) =>
-      prevMedications.map((med) =>
-        med.id === id
+  useEffect(() => {
+    const fetchUserId = async () => {
+      const id = await AsyncStorage.getItem("userId");
+      let numberId = Number(id);
+      setUserId(numberId);
+    };
+    fetchUserId();
+  }, []);
+
+  useEffect(() => {
+    const fetchMedications = async () => {
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}med/user/${userId}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setMedications(data);
+      }
+    };
+    fetchMedications();
+  }, [userId]);
+
+  useEffect(() => {
+    const fetchSchedules = async () => {
+      const allSchedules: MedSchedSchema[] = [];
+      for (const medication of medications) {
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_API_URL}sched/med/${medication.medId}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          allSchedules.push(...data);
+        }
+      }
+      setSchedules(allSchedules);
+    };
+
+    if (medications.length > 0) {
+      fetchSchedules();
+    }
+  }, [medications]);
+
+  const markAs = (
+    id: number,
+    status: "Taken" | "Missed",
+    quantity: string | undefined,
+    timeTaken: string | undefined
+  ) => {
+    setSchedule((prevSchedule) =>
+      prevSchedule.map((sched) =>
+        sched.schedId === id
           ? {
-              ...med,
-              status,
+              ...sched,
               notified: true,
-              quantityTaken: quantity,
-              timeTaken: timeTaken, // Save the time taken if missed
+              qtyTaken: quantity,
+              timeTaken: timeTaken ?? undefined,
             }
-          : med
+          : sched
       )
     );
-    Alert.alert('Medication Updated', `Marked as ${status}.`);
+    Alert.alert("Medication Updated", `Marked as ${status}.`);
   };
 
-  const handleMissedDose = (med: Medication) => {
+  const handleMissedDose = (sched: MedSchedSchema) => {
     const now = new Date();
-    const doseTime = new Date(`1970-01-01T${med.time}:00`);
+    const doseTime = new Date(`1970-01-01T${sched.time}:00`);
 
-    // If the current time is closer to the next dose, suggest waiting.
-    if (now.getTime() - doseTime.getTime() > 3600000) { // 1 hour threshold
+    if (now.getTime() - doseTime.getTime() > 3600000) {
       Alert.alert(
-        'Missed Dose',
-        'It seems you missed this dose. Since the next dose is close, you may want to take it at the scheduled time.'
+        "Missed Dose",
+        "It seems you missed this dose. Since the next dose is close, you may want to take it at the scheduled time."
       );
     } else {
-      Alert.alert('Missed Dose', 'You can take the missed dose now.');
+      Alert.alert("Missed Dose", "You can take the missed dose now.");
     }
   };
 
   return (
     <ThemedView style={styles.container}>
       <Text style={styles.heading}>Welcome to MediBuddy!</Text>
-      {/* Calendar */}
       <Calendar
         markedDates={{
-          [selectedDate || '']: { selected: true, selectedColor: '#007bff' },
+          [selectedDate || ""]: { selected: true, selectedColor: "#007bff" },
         }}
         onDayPress={onDateSelect}
         style={styles.calendar}
@@ -87,88 +123,101 @@ export default function HomeScreen() {
         }}
       />
 
-      {/* Medication List */}
       <View style={styles.listContainer}>
-        {medications.length > 0 ? (
+        {schedule.length > 0 ? (
           <FlatList
-            data={medications}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item, index }) => (
+            data={schedule}
+            keyExtractor={(item) => item.schedId?.toString() || ""}
+            renderItem={({ item }) => (
               <View
                 style={[
                   styles.medicationItem,
-                  item.status === 'Taken' && styles.takenBackground,
-                  item.status === 'Missed' && styles.missedBackground,
+                  item.taken && styles.takenBackground,
+                  item.timeTaken === null && styles.missedBackground,
                 ]}
               >
-                {/* Medication details */}
                 <View style={styles.medicationDetails}>
                   <Text style={styles.medicationText}>
-                    {item.name} - {item.dosage})
+                    {medications.find((med) => med.medId === item.medId)?.name}{" "}
+                    - {item.qtyTaken || "N/A"}
                   </Text>
                   <Text style={styles.medicationTime}>Time: {item.time}</Text>
                 </View>
 
-                {/* Status Text */}
-                {item.status && (
+                {item.taken && (
                   <Text
                     style={[
                       styles.statusText,
-                      item.status === 'Taken' ? styles.takenText : styles.missedText,
+                      item.taken === true
+                        ? styles.takenText
+                        : styles.missedText,
                     ]}
                   >
-                    {item.status}
+                    {item.taken ? "Taken" : "Missed"}
                   </Text>
                 )}
 
-                {/* Action Buttons (lower right) */}
-                {!item.status && (
+                {!item.taken && (
                   <View style={styles.buttonsContainer}>
-                    {/* Quantity Taken Section */}
                     <View style={styles.inputContainer}>
                       <Text style={styles.inputLabel}>Quantity Taken</Text>
                       <TextInput
                         style={styles.quantityInput}
                         placeholder="Quantity Taken"
                         keyboardType="numeric"
-                        value={item.quantityTaken || item.dosage} // Default to required dosage if no value
-                        maxLength={3} // Limit input to reasonable quantity (e.g., 999 max)
+                        value={item.qtyTaken || ""}
+                        maxLength={3}
                         onChangeText={(text) => {
-                          // Ensure the quantity is less than or equal to the required dose
-                          const quantity = Math.min(parseInt(text) || 0, parseInt(item.dosage) || 0);
-                          setMedications((prevMedications) =>
-                            prevMedications.map((med) =>
-                              med.id === item.id ? { ...med, quantityTaken: quantity.toString() } : med
+                          const quantity = Math.min(
+                            parseInt(text) || 0,
+                            parseInt(
+                              medications.find(
+                                (med) => med.medId === item.medId
+                              )?.dose || "0"
+                            )
+                          );
+                          setSchedule((prevSchedule) =>
+                            prevSchedule.map((sched) =>
+                              sched.schedId === item.schedId
+                                ? { ...sched, qtyTaken: quantity.toString() }
+                                : sched
                             )
                           );
                         }}
                       />
                     </View>
 
-                    {/* Time Taken Section */}
                     <View style={styles.inputContainer}>
                       <Text style={styles.inputLabel}>Time Taken</Text>
                       <TextInput
                         style={styles.timeInput}
                         placeholder="HH:MM"
                         keyboardType="numeric"
-                        value={item.timeTaken || ''} // Allow user to enter time if missed clicking taken/missed
-                        maxLength={5} // Format like HH:MM
+                        value={item.timeTaken || ""}
+                        maxLength={5}
                         onChangeText={(text) => {
-                          setMedications((prevMedications) =>
-                            prevMedications.map((med) =>
-                              med.id === item.id ? { ...med, timeTaken: text } : med
+                          setSchedule((prevSchedule) =>
+                            prevSchedule.map((sched) =>
+                              sched.schedId === item.schedId
+                                ? { ...sched, timeTaken: text }
+                                : sched
                             )
                           );
                         }}
                       />
                     </View>
 
-                    {/* Action Buttons for Taken or Missed */}
                     <View style={styles.actionButtonsContainer}>
                       <TouchableOpacity
                         style={styles.takenButton}
-                        onPress={() => markAs(item.id, 'Taken', item.quantityTaken, item.timeTaken)}
+                        onPress={() =>
+                          markAs(
+                            item.schedId!,
+                            "Taken",
+                            item.qtyTaken ?? undefined,
+                            item.timeTaken
+                          )
+                        }
                       >
                         <Text style={styles.buttonText}>Taken</Text>
                       </TouchableOpacity>
@@ -176,7 +225,12 @@ export default function HomeScreen() {
                         style={styles.missedButton}
                         onPress={() => {
                           handleMissedDose(item);
-                          markAs(item.id, 'Missed', item.quantityTaken, item.timeTaken);
+                          markAs(
+                            item.schedId!,
+                            "Missed",
+                            item.qtyTaken,
+                            item.timeTaken
+                          );
                         }}
                       >
                         <Text style={styles.buttonText}>Missed</Text>
@@ -188,124 +242,126 @@ export default function HomeScreen() {
             )}
           />
         ) : (
-          <Text style={styles.noDataText}>No medications scheduled for this day.</Text>
+          <Text style={styles.noDataText}>
+            No medications scheduled for this day.
+          </Text>
         )}
       </View>
     </ThemedView>
   );
 }
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
   heading: {
     marginTop: 35,
     fontSize: width * 0.05,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 16,
-    alignSelf: 'center',
+    alignSelf: "center",
   },
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     paddingBottom: 80,
   },
   calendar: {
     marginBottom: 16,
-    width: '100%',
+    width: "100%",
     padding: 16,
     borderRadius: 10,
-    backgroundColor: '#f4f4f4',
+    backgroundColor: "#f4f4f4",
   },
   listContainer: {
     flex: 1,
   },
   medicationItem: {
-    flexDirection: 'column',
-    justifyContent: 'flex-start',
+    flexDirection: "column",
+    justifyContent: "flex-start",
     padding: 16,
     marginBottom: 16,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
-    position: 'relative', // To position the buttons and status text inside this container
+    borderColor: "#ddd",
+    position: "relative",
   },
   medicationDetails: {
-    paddingBottom: 15, 
+    paddingBottom: 15,
   },
   medicationText: {
     fontSize: width * 0.055,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   medicationTime: {
     fontSize: width * 0.05,
-    color: '#888',
+    color: "#888",
   },
   takenButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: "#4CAF50",
     padding: 12,
     borderRadius: 4,
-    alignItems: 'center',
+    alignItems: "center",
     width: 160,
   },
   missedButton: {
-    backgroundColor: '#FF5722',
+    backgroundColor: "#FF5722",
     padding: 12,
     borderRadius: 4,
-    alignItems: 'center',
+    alignItems: "center",
     width: 160,
   },
   buttonText: {
-    color: 'white',
+    color: "white",
     fontSize: width * 0.045,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   takenBackground: {
-    backgroundColor: '#d4f8e8',
+    backgroundColor: "#d4f8e8",
   },
   missedBackground: {
-    backgroundColor: '#ffd6d6',
+    backgroundColor: "#ffd6d6",
   },
   statusText: {
-    position: 'absolute',
+    position: "absolute",
     top: 10,
     right: 10,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: width * 0.045,
   },
   takenText: {
-    color: '#4CAF50',
+    color: "#4CAF50",
   },
   missedText: {
-    color: '#FF5722',
+    color: "#FF5722",
   },
   noDataText: {
-    textAlign: 'center',
-    color: '#888',
+    textAlign: "center",
+    color: "#888",
     fontSize: width * 0.05,
   },
   buttonsContainer: {
     marginTop: 15,
     padding: 15,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
   },
   inputContainer: {
-    marginBottom: 15,  // Space between inputs
+    marginBottom: 15,
   },
   inputLabel: {
     fontSize: width * 0.045,
-    fontWeight: 'bold',
-    marginBottom: 5,  // Label space from input
+    fontWeight: "bold",
+    marginBottom: 5,
   },
   quantityInput: {
     height: 40,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 5,
     paddingLeft: 10,
     fontSize: width * 0.045,
@@ -313,14 +369,14 @@ const styles = StyleSheet.create({
   timeInput: {
     height: 40,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 5,
     paddingLeft: 10,
     fontSize: width * 0.045,
   },
   actionButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',  // Buttons next to each other
-    gap: 10,  // Space between buttons
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
   },
 });
