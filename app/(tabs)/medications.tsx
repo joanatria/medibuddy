@@ -52,6 +52,7 @@ export default function MedicationTab() {
   const [typeDropdown, setTypeDropdown] = useState(false);
   const [dayPickerOpen, setDayPickerOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+
   useEffect(() => {
     const fetchUserId = async () => {
       const id = await AsyncStorage.getItem("userId");
@@ -109,6 +110,16 @@ export default function MedicationTab() {
     interval: "",
   });
 
+  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+  const [selectedMedication, setSelectedMedication] = useState<MedicineSchema & { scheduleData?: typeof scheduleFormData } | null>(null);
+
+  const toggleDetailsModal = (medication: MedicineSchema, scheduleData: typeof scheduleFormData) => {
+    console.log("Toggle Details Modal", medication, scheduleData); // Check values here
+    setSelectedMedication({ ...medication, scheduleData });
+    setDetailsModalVisible(!detailsModalVisible);
+  };
+  
+  
   const handleSearch = (text: string) => {
     if (text.trim() === "") {
       setFilteredMedications(medications);
@@ -328,6 +339,7 @@ export default function MedicationTab() {
       }
     }
   };
+
   const handleInputChange = (
     key: string,
     value: string | boolean | string[]
@@ -437,7 +449,7 @@ export default function MedicationTab() {
   };
 
   return (
-    <View style={{ maxHeight: "100%", backgroundColor: "#fff" }}>
+    <View style={{ height: "100%", backgroundColor: "#fff", paddingBottom: 100 }}>
       <FlatList
         ListHeaderComponent={
           <View style={styles.container}>
@@ -613,6 +625,7 @@ export default function MedicationTab() {
                                   fontSize: 15,
                                   fontWeight: "400",
                                   marginTop: 2,
+                                  marginLeft: 3,
                                 },
                               ]}
                             >
@@ -760,7 +773,7 @@ export default function MedicationTab() {
                                 <View
                                   style={[
                                     styles.borderedBox,
-                                    { width: "70%", padding: 14 },
+                                    { width: "69.5%", padding: 14 },
                                   ]}
                                 >
                                   <Text style={styles.timeInput}>
@@ -1033,6 +1046,7 @@ export default function MedicationTab() {
         data={filteredMedications}
         keyExtractor={(item) => item.medId?.toString() ?? ""}
         renderItem={({ item }) => (
+          <TouchableOpacity onPress={() => toggleDetailsModal(item, scheduleFormData)} activeOpacity={0.7}>
           <View style={styles.medicationItem}>
             <View style={styles.medicationDetails}>
               <Text style={styles.medicationText}>{item.name}</Text>
@@ -1087,11 +1101,95 @@ export default function MedicationTab() {
               </TouchableOpacity>
             </View>
           </View>
+          </TouchableOpacity>
         )}
         ListEmptyComponent={
           <Text style={styles.noDataText}>No medications added yet.</Text>
         }
       />
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={detailsModalVisible}
+        onRequestClose={() => setDetailsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {selectedMedication && (
+              <>
+                <View style={styles.table}>
+                  <Text style={styles.modalTitle}>{selectedMedication?.name}</Text>
+
+                  <View style={styles.tableRow}>
+                    <Text style={styles.tableLabel}>Description:</Text>
+                    <Text style={styles.tableValue}>{selectedMedication?.description}</Text>
+                  </View>
+
+                  <View style={styles.tableRow}>
+                    <Text style={styles.tableLabel}>Dose:</Text>
+                    <Text style={styles.tableValue}>{selectedMedication?.dose} {selectedMedication?.unit}</Text>
+                  </View>
+
+                  <View style={styles.tableRow}>
+                    <Text style={styles.tableLabel}>Instructions:</Text>
+                    <Text style={styles.tableValue}>
+                      {selectedMedication?.instructions.split(", ")[0]} times a day for {selectedMedication?.instructions.split(", ")[1]} days
+                    </Text>
+                  </View>
+
+                  <View style={styles.tableRow}>
+                    <Text style={styles.tableLabel}></Text>
+                    <Text style={styles.tableValue}>
+                      {selectedMedication.instructions.split(", ")[2]} starting {selectedMedication.instructions.split(", ")[3]}
+                    </Text>
+                  </View>
+
+                  <View style={styles.tableRow}>
+                    <Text style={styles.tableLabel}>Time Slot:</Text>
+                    {selectedMedication?.scheduleData?.isEveryHours ? (
+                      <Text style={styles.tableValue}>
+                        Every {selectedMedication.scheduleData.interval} hours starting at {selectedMedication.scheduleData.startTime}
+                      </Text>
+                    ) : (
+                      <View style={styles.tableValue}>
+                        {selectedMedication?.scheduleData?.timeSlots &&
+                          selectedMedication.scheduleData.timeSlots.split(", ").map((slot, index) => (
+                            <Text key={index} style={styles.tableValueText}>
+                              {slot}
+                            </Text>
+                          ))}
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.tableRow}>
+                    <Text style={styles.tableLabel}>Required Qty:</Text>
+                    <Text style={styles.tableValue}>{selectedMedication?.requiredQty}</Text>
+                  </View>
+
+                  <View style={styles.tableRow}>
+                    <Text style={styles.tableLabel}>Current Qty:</Text>
+                    <Text style={styles.tableValue}>{selectedMedication?.currentQty}</Text>
+                  </View>
+
+                  <View style={styles.tableRow}>
+                    <Text style={styles.tableLabel}>Notification:</Text>
+                    <Text style={styles.tableValue}>{selectedMedication?.notificationType}</Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setDetailsModalVisible(false)}
+                >
+                  <Text style={styles.closeButtonText}>Close</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -1144,7 +1242,7 @@ const styles = StyleSheet.create({
   heading: {
     marginTop: 35,
     textAlign: "center",
-    fontSize: width * 0.05,
+    fontSize: width * 0.06,
     fontWeight: "bold",
     marginVertical: 10,
   },
@@ -1345,7 +1443,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    width: "99%",
+    width: "95%",
     maxHeight: "80%",
     height: "auto",
     overflowY: "auto",
@@ -1354,9 +1452,10 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalTitle: {
-    fontSize: 19,
+    fontSize: width*0.06,
     fontWeight: "bold",
-    marginBottom: 10,
+    marginBottom: 15,
+    textAlign: "center",
   },
   modalButtonContainer: {
     flexDirection: "row",
@@ -1372,5 +1471,64 @@ const styles = StyleSheet.create({
   modalButtonText: {
     color: "#fff",
     fontWeight: "bold",
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalText: {
+    fontSize: 16,
+    marginVertical: 8,
+  },
+  closeButton: {
+    marginTop: 20,
+    backgroundColor: "#30b4c1",
+    padding: 10,
+    borderRadius: 8,
+  },
+  closeButtonText: {
+    color: "white",
+    textAlign: "center",
+    fontWeight: 600,
+    fontSize: width*0.04,
+  },
+  table: {
+    padding: 15,
+    backgroundColor: "#ffffff",
+    borderRadius: 10,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    borderWidth: 1,
+    borderColor: "#ccc",
+  },
+  tableRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#ccc",
+    paddingVertical: 10,
+  },
+  tableLabel: {
+    fontWeight: "bold",
+    fontSize: 16,
+    color: "#222",
+    flex: 1,
+  },
+  tableValue: {
+    fontSize: 16,
+    color: "#555",
+    flex: 2,
+    textAlign: "left", 
+  },
+  tableValueText: {
+    fontSize: 16,
+    color: "#555",
+    marginBottom: 5, // Add spacing between time slots
+    textAlign: "left", // Ensure alignment is left
   },
 });
